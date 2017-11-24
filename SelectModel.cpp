@@ -6,6 +6,7 @@ CSelectModel *CSelectModel::m_inst = NULL;
 pthread_mutex_t CSelectModel::m_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 CSelectModel::CSelectModel()
+    :m_timeout(0)
 {
     FD_ZERO(&m_read_set);
     FD_ZERO(&m_write_set);
@@ -90,7 +91,20 @@ int CSelectModel::clear_write_fd_set()
     FD_ZERO(&m_write_set);
 }
 
+int CSelectModel::set_timeout(int milli_sec)
+{
+    m_timeout = milli_sec;
+    return 0;
+}
+
 int CSelectModel::start()
 {
+    fd_set rset, wset;
+    int ret = 0;
+    for (rset = m_read_set, wset = m_write_set;
+            (ret = select(FD_SETSIZE, &rset, &wset, NULL, NULL)) >= 0;
+            rset = m_read_set, wset = m_write_set)
+    {
+    }
     return 0;
 }
