@@ -4,10 +4,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
-#include <sys/select.h>
 #include <sys/socket.h>
 
 #include "common.h"
@@ -17,7 +15,7 @@
 
 CTcpServer::CTcpServer(int port):
     m_port(port),
-    m_serv_sock(0)
+    m_serv_sock(-1)
 {
 }
 
@@ -30,8 +28,61 @@ CTcpServer::~CTcpServer()
     }
 }
 
+IMultiPlexer* CTcpServer::get_model()
+{
+    return CSelectModel::instance();
+}
+
+bool CTcpServer::is_acceptable(int sock)
+{
+    return sock == m_serv_sock;
+}
+
+int CTcpServer::do_accept(int sock)
+{
+    if (sock != m_serv_sock)
+        return -1;
+
+    struct sockaddr_in client_address;  
+    socklen_t client_len = sizeof(client_address);
+    int client_sock = accept(sock, (struct sockaddr *)&client_address, &client_len);  
+    if (client_sock <= 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+        {
+            return 0;
+        }
+
+        char log_buf[1024];
+        snprintf(log_buf, sizeof(log_buf), "accept error, sock: %d", sock);
+        LOG_INFO(log_buf);
+
+        return -1;
+    }
+
+    int flags = fcntl(client_sock, F_GETFL, 0);
+    fcntl(client_sock, F_SETFL, flags|O_NONBLOCK);
+
+    IMultiPlexer *multi_plexer = get_model();
+    if (!multi_plexer || multi_plexer->set_read_fd(client_sock, this) != 0)
+        return -1;
+
+    return 0;
+}
+
+int CTcpServer::do_clean(int sock)
+{
+    char log_buf[1024];
+    snprintf(log_buf, sizeof(log_buf), "close sock: %d", sock);
+    LOG_INFO(log_buf);
+
+    close(sock);
+    return 0;
+}
+
 int CTcpServer::do_read(int sock, char *buf, int size)
 {
+    LOG_INFO(buf);
     return 0;
 }
 
@@ -39,89 +90,6 @@ int CTcpServer::do_write(int sock, char *buf, int size)
 {
     return 0;
 }
-
-/*
-int CTcpServer::select_model() 
-{
-    fd_set fd_read;
-    FD_ZERO(&fd_read);
-    FD_SET(m_serv_sock, &fd_read);
-    
-    for (fd_set fd_test = fd_read; select(FD_SETSIZE, &fd_test, NULL, NULL, NULL) >= 0; fd_test = fd_read)
-    {
-        for (int fd = 0; fd < FD_SETSIZE; fd++)
-        {
-            if (!FD_ISSET(fd, &fd_test))
-                continue;
-
-            if (fd == m_serv_sock)
-            {
-                struct sockaddr_in client_address;  
-                socklen_t client_len = sizeof(client_address);
-                int client_sock = accept(m_serv_sock, (struct sockaddr *)&client_address, &client_len);  
-                if (client_sock <= 0)
-                {
-                    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-                    {
-                        continue;
-                    }
-                    break;
-                }
-
-                FD_SET(client_sock, &fd_read);
-            }
-            else
-            {
-                int nread = 0;
-                ioctl(fd, FIONREAD, &nread);
-                if (nread <= 0)
-                {
-                    close(fd);
-                    FD_CLR(fd, &fd_read);
-                    continue;
-                }
-
-                char *buf = new char[nread];
-                if (buf == NULL)
-                {
-                    close(fd);
-                    FD_CLR(fd, &fd_read);
-                    continue;
-                }
-
-                int n = read(fd, buf, nread);
-                if (n == 0)
-                {
-                    close(fd);
-                    FD_CLR(fd, &fd_read);
-                    continue;
-                }
-                if (n < 0)
-                {
-                    if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
-                    {
-                        close(fd);
-                        FD_CLR(fd, &fd_read);
-                    }
-                    continue;
-                }
-
-                do_data(buf, n);
-            }
-        }
-    }
-
-    for (int fd = 0; fd < FD_SETSIZE; fd++)
-    {
-        if (FD_ISSET(fd, &fd_read))
-        {
-            close(fd);
-        }
-    }
-
-    return 0;
-}
-*/
 
 int CTcpServer::start()
 {
@@ -150,7 +118,7 @@ int CTcpServer::start()
     // listen
     ERROR_ON_NEG(listen(m_serv_sock, 1024));
 
-    IMultiPlexer *multi_plexer = CSelectModel::instance();
+    IMultiPlexer *multi_plexer = get_model();
     if (!multi_plexer || multi_plexer->set_read_fd(m_serv_sock, this) != 0)
         return -1;
 

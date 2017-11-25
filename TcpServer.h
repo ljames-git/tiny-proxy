@@ -11,7 +11,13 @@ class CTcpServer: public IRwComponent
         ~CTcpServer();
         int start();
 
-    protected:
+        virtual IMultiPlexer* get_model();
+
+    public:
+        // implementaions of IRwComponent interface
+        virtual bool is_acceptable(int sock);
+        virtual int do_accept(int sock);
+        virtual int do_clean(int sock);
         virtual int do_read(int sock, char *buf, int size);
         virtual int do_write(int sock, char *buf, int size);
 

@@ -9,23 +9,27 @@
 class CSelectModel: public IMultiPlexer
 {
     public:
-        int start();
-        int set_timeout(int milli_sec);
+        virtual ~CSelectModel();
+
+        // singleton
         static CSelectModel *instance();
 
     public:
+        // implementations of IMultiPlexer interface
         virtual int set_read_fd(int fd, IRwComponent *component);
         virtual int set_write_fd(int fd, IRwComponent *component);
         virtual int clear_read_fd(int fd);
         virtual int clear_write_fd(int fd);
+        virtual int set_timeout(int milli_sec);
         virtual int clear_read_fd_set();
         virtual int clear_write_fd_set();
-        virtual ~CSelectModel();
+        virtual int start();
 
     private:
         CSelectModel();
 
     private:
+        // model timeout, millisecond
         int m_timeout;
         fd_set m_read_set;
         fd_set m_write_set;
