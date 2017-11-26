@@ -5,15 +5,12 @@
 
 class IMultiPlexer
 {
-    public:
-        virtual int set_read_fd(int fd, IRwComponent *component) = 0;
-        virtual int set_write_fd(int fd, IRwComponent *component) = 0;
-        virtual int clear_read_fd(int fd) = 0;
-        virtual int clear_write_fd(int fd) = 0;
-        virtual int set_timeout(int milli_sec) = 0;
-        virtual int clear_read_fd_set() = 0;
-        virtual int clear_write_fd_set() = 0;
-        virtual int start() = 0;
+public:
+    virtual int start() = 0;
+    virtual int clear_fd(int fd) = 0;
+    virtual int set_timeout(int milli_sec) = 0;
+    virtual int set_read_fd(int fd, IRwComponent *component) = 0;
+    virtual int write(int fd, char *buf, int size, IRwComponent *component) = 0;
 };
 
 #endif //__MULTI_PLEXER_H__

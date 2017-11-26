@@ -3,12 +3,13 @@
 
 class IRwComponent
 {
-    public:
-        virtual bool is_acceptable(int sock) = 0;
-        virtual int do_accept(int sock) = 0;
-        virtual int do_clean(int sock) = 0;
-        virtual int do_read(int sock, char *buf, int size) = 0;
-        virtual int do_write(int sock, char *buf, int size) = 0;
+public:
+    virtual bool is_acceptable(int sock) = 0;
+    virtual int on_accept(int sock) = 0;
+    virtual int on_data(int sock, char *buf, int size) = 0;
+    virtual int on_close(int sock) = 0;
+    virtual int on_error(int sock) = 0;
+    virtual int on_write_done(int sock) = 0;
 };
 
 #endif //__RW_COMPONENT_H__

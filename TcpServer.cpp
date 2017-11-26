@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -38,55 +37,53 @@ bool CTcpServer::is_acceptable(int sock)
     return sock == m_serv_sock;
 }
 
-int CTcpServer::do_accept(int sock)
+int CTcpServer::on_accept(int sock)
 {
-    if (sock != m_serv_sock)
-        return -1;
-
-    struct sockaddr_in client_address;  
-    socklen_t client_len = sizeof(client_address);
-    int client_sock = accept(sock, (struct sockaddr *)&client_address, &client_len);  
-    if (client_sock <= 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-        {
-            return 0;
-        }
-
-        char log_buf[1024];
-        snprintf(log_buf, sizeof(log_buf), "accept error, sock: %d", sock);
-        LOG_INFO(log_buf);
-
-        return -1;
-    }
-
-    int flags = fcntl(client_sock, F_GETFL, 0);
-    fcntl(client_sock, F_SETFL, flags|O_NONBLOCK);
+    int flags = fcntl(sock, F_GETFL, 0);
+    fcntl(sock, F_SETFL, flags|O_NONBLOCK);
 
     IMultiPlexer *multi_plexer = get_model();
-    if (!multi_plexer || multi_plexer->set_read_fd(client_sock, this) != 0)
+    if (!multi_plexer || multi_plexer->set_read_fd(sock, this) != 0)
         return -1;
 
     return 0;
 }
 
-int CTcpServer::do_clean(int sock)
+int CTcpServer::on_data(int sock, char *buf, int size)
+{
+    if (buf == NULL || size <= 0)
+        return -1;
+
+    LOG_INFO(buf);
+    return 0;
+}
+
+int CTcpServer::on_close(int sock)
+{
+    return on_error(sock);
+}
+
+int CTcpServer::on_error(int sock)
 {
     char log_buf[1024];
     snprintf(log_buf, sizeof(log_buf), "close sock: %d", sock);
     LOG_INFO(log_buf);
 
+    if (sock == m_serv_sock)
+    {
+        close(sock);
+        return 0;
+    }
+
     close(sock);
+    IMultiPlexer *multi_plexer = get_model();
+    if (!multi_plexer || multi_plexer->clear_fd(sock) != 0)
+        return -1;
+
     return 0;
 }
 
-int CTcpServer::do_read(int sock, char *buf, int size)
-{
-    LOG_INFO(buf);
-    return 0;
-}
-
-int CTcpServer::do_write(int sock, char *buf, int size)
+int CTcpServer::on_write_done(int sock)
 {
     return 0;
 }
