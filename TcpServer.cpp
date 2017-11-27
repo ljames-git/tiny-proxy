@@ -55,6 +55,20 @@ int CTcpServer::on_data(int sock, char *buf, int size)
         return -1;
 
     LOG_INFO(buf);
+    /*
+    char resp[] = "HTTP/1.1 200 OK\r\n"
+        "Connection: Keep-Alive\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "Date: Sun, 26 Nov 2017 13:20:59 GMT\r\n"
+        "Expires: Sun, 26 Nov 2017 13:20:16 GMT\r\n"
+        "Vary: Accept-Encoding\r\n"
+        "X-Powered-By: HPHP\r\n"
+        "X-Ua-Compatible: IE=Edge,chrome=1\r\n"
+        "Content-Length: 5\r\n\r\nhello";
+    IMultiPlexer *multi_plexer = get_model();
+    multi_plexer->write(sock, resp, strlen(resp), this);
+    */
+
     return 0;
 }
 
