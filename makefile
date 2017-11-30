@@ -4,7 +4,7 @@ OBJ := $(patsubst %.cpp, %.o, $(patsubst %.c, %.o, $(SRC)))
 DEP := $(patsubst %.cpp, %.d, $(patsubst %.c, %.d, $(SRC)))
 GXX := g++
 TARGET := tiny_proxy
-CFLAGS := -g -c
+CFLAGS := -g -c -Wall -O0
 MACROS := 
 LDFLAGS := -lpthread
 

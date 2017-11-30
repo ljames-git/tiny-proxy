@@ -8,7 +8,7 @@ class CHttpRequest
 public:
     CHttpRequest();
     ~CHttpRequest();
-private:
+
     CHttpHeader m_header;
 };
 

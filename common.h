@@ -2,6 +2,7 @@
 #define __COMMON_H__
 
 #include <time.h>
+#include <stdio.h>
 
 #define LOG_LEVEL_INFO "INFO"
 #define LOG_LEVEL_DEBUG "DEBUG"
