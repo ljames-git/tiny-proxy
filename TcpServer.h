@@ -22,6 +22,9 @@ public:
     virtual int on_error(int sock);
     virtual int on_write_done(int sock);
 
+protected:
+    virtual int do_close(int sock);
+
 private:
     int m_port;
     int m_serv_sock;

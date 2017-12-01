@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 
 #include "common.h"
@@ -22,7 +23,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
 {
     if (task == NULL) 
         return -1;
-    if (task->body != NULL)
+    if (task->body_offset > 0)
         return 1;
 
     for (char *p = task->header_buf + task->header_size, *q = p;
@@ -50,8 +51,8 @@ int CHttpServer::parse_req_header(http_task_t *task)
                     }
 
                 }
-                task->body = p;
-                return 0;
+                task->body_offset = p - task->header_buf + 1;
+                return 1;
             }
 
             if (task->req.m_header.get_method() == HTTP_METHOD_NONE)
@@ -89,12 +90,22 @@ int CHttpServer::parse_req_header(http_task_t *task)
                 if (*t == ':')
                 {
                     *t = 0;
-                    task->req.m_header.set_value(CStringUtil::trim(q), CStringUtil::trim(t + 1));
+                    const char *key = CStringUtil::trim(q);
+                    const char *value = CStringUtil::trim(t + 1);
+                    task->req.m_header.set_value(key, value);
+                    
+                    // get content length
+                    if (strcmp(key, "Content-Length") == 0)
+                        task->req.m_header.set_content_length(atoi(value));
                 }
             }
 
             q = p + 1;
         }
+    }
+
+    if (task->header_size >= HTTP_HEADER_LEN)
+    {
     }
 
     return 0;
@@ -113,10 +124,32 @@ int CHttpServer::on_data(int sock, char *buf, int size)
     }
     task = m_task_map[sock];
 
-    int copy_size = size > HTTP_HEADER_LEN ? HTTP_HEADER_LEN : size;
-    memcpy(task->header_buf, buf, copy_size);
-    if (parse_req_header(task) < 0)
+    if (task->body_offset == 0)
+    {
+        int copy_size = size > HTTP_HEADER_LEN ? HTTP_HEADER_LEN : size;
+        memcpy(task->header_buf, buf, copy_size);
+        task->header_buf_size = copy_size;
+    }
+
+    int state = parse_req_header(task);
+    if (state < 0)
         return -1;
 
+    if (state > 0)
+    {
+    }
+
     return 0;
+}
+
+int CHttpServer::do_close(int sock)
+{
+    task_map_t::iterator it = m_task_map.find(sock);
+    if (it != m_task_map.end())
+    {
+        delete it->second;
+        m_task_map.erase(it);
+    }
+
+    return CTcpServer::do_close(sock);
 }

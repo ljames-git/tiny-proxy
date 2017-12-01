@@ -33,8 +33,13 @@ public:
     const char *get_uri();
     int set_uri(const char* uri);
 
+    // content-length
+    int get_content_length();
+    int set_content_length(int length);
+
 private:
     int m_method;
+    int m_content_length;
     char m_uri[HTTP_URI_LEN];
     std::map<std::string, std::string> m_map;
 };

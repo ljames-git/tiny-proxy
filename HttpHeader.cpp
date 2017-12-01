@@ -2,7 +2,8 @@
 #include "HttpHeader.h"
 
 CHttpHeader::CHttpHeader():
-    m_method(HTTP_METHOD_NONE)
+    m_method(HTTP_METHOD_NONE),
+    m_content_length(0)
 {
     m_uri[0] = 0;
 }
@@ -68,5 +69,19 @@ int CHttpHeader::set_uri(const char* uri)
         return -1;
 
     strcpy(m_uri, uri);
+    return 0;
+}
+
+int CHttpHeader::get_content_length()
+{
+    return m_content_length;
+}
+
+int CHttpHeader::set_content_length(int length)
+{
+    if (length < 0)
+        return -1;
+
+    m_content_length = length;
     return 0;
 }

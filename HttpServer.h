@@ -9,16 +9,18 @@
 struct http_task_t
 {
     int sock;
+    int body_offset;
     int header_size;
-    char *body;
+    int header_buf_size;
     CHttpRequest req;
     CHttpResponse res;
     char header_buf[HTTP_HEADER_LEN];
 
     http_task_t(int s):
         sock(s),
+        body_offset(0),
         header_size(0),
-        body(NULL)
+        header_buf_size(0)
     {
         header_buf[0] = 0;
     }
@@ -37,6 +39,9 @@ public:
 
 public:
     virtual int on_data(int sock, char *buf, int size);
+
+protected:
+    virtual int do_close(int sock);
 
 private:
     int parse_req_header(http_task_t *task);
