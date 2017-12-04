@@ -1,30 +1,24 @@
 PWD := `pwd`
-SRC := $(wildcard *.c) $(wildcard *.cpp)
+SRC := $(wildcard *.c) $(wildcard *.cpp) $(wildcard */*.c) $(wildcard */*.cpp)
 OBJ := $(patsubst %.cpp, %.o, $(patsubst %.c, %.o, $(SRC)))
 DEP := $(patsubst %.cpp, %.d, $(patsubst %.c, %.d, $(SRC)))
 GXX := g++
-TARGET := tiny_proxy
-CINCLUDE := -I. -Ilibcurl/include
+TARGET := libcurl.a
+CINCLUDE := -I. -Iinclude
 CFLAGS := -g -c -Wall -O0 $(CINCLUDE)
-MACROS := 
-LDFLAGS := 
-LDLIBS := -lpthread
-SUBDIRS := $(shell ls -F | grep /$$ | sed 's/\///g')
-STATICLIBS := $(foreach n, $(SUBDIRS), $(n)/$(n).a)
-
+MACROS := -DBUILDING_LIBCURL -DHAVE_STRUCT_TIMEVAL -DHAVE_CONFIG_H
+LDFLAGS := -lpthread
 
 
 CFLAGS += $(MACROS)
 
-.PHONY: all libs
+.PHONY: all
 
-all: libs $(TARGET)
+all: $(TARGET)
 
-libs:
-	for i in $(SUBDIRS); do make -C $$i all; done
 
-$(TARGET): $(OBJ) $(STATICLIBS)
-	$(GXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+$(TARGET): $(OBJ)
+	ar crv $@ $(OBJ)
 
 include $(DEP)
 
@@ -46,5 +40,4 @@ include $(DEP)
 everything: clean all
 
 clean:  
-	for i in $(SUBDIRS); do make -C $$i clean; done
 	rm -f $(DEP) $(OBJ) $(TARGET)
