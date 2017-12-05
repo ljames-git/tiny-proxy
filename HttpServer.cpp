@@ -36,22 +36,6 @@ int CHttpServer::parse_req_header(http_task_t *task)
             if (strlen(q) == 0)
             {
                 // header end
-                {
-                    char log_buf[1024];
-                    snprintf(log_buf, sizeof(log_buf), "%d", task->req.m_header.get_method());
-                    LOG_INFO(log_buf);
-                    LOG_INFO(task->req.m_header.get_uri());
-
-                    int size = 0;
-                    char **p = task->req.m_header.get_keys(&size);
-                    for (char **q = p; q - p < size; q++)
-                    {
-                        char log_buf[1024];
-                        snprintf(log_buf, sizeof(log_buf), "%s:%s", *q, task->req.m_header.get_value(*q));
-                        LOG_INFO(log_buf);
-                    }
-
-                }
                 task->body_offset = p - task->header_buf + 1;
                 return 1;
             }
@@ -130,11 +114,14 @@ int CHttpServer::on_data(int sock, char *buf, int size)
     }
     task = m_task_map[sock];
 
+    if (task->done)
+        return 0;
+
     if (task->body_offset == 0)
     {
-        int copy_size = size > HTTP_HEADER_LEN ? HTTP_HEADER_LEN : size;
-        memcpy(task->header_buf, buf, copy_size);
-        task->header_buf_size = copy_size;
+        int copy_size = size > HTTP_HEADER_LEN - task->header_buf_size ? HTTP_HEADER_LEN - task->header_buf_size : size;
+        memcpy(task->header_buf + task->header_size, buf, copy_size);
+        task->header_buf_size += copy_size;
     }
 
     int state = parse_req_header(task);
@@ -143,6 +130,37 @@ int CHttpServer::on_data(int sock, char *buf, int size)
 
     if (state > 0)
     {
+        int content_length = task->req.m_header.get_content_length();
+        if (content_length < 0)
+            return -1;
+
+        if (!task->body)
+        {
+            task->body = new char[content_length];
+            if (!task->body)
+                return -1;
+
+            int copy_size = task->header_buf_size - task->body_offset;
+            if (copy_size > 0)
+            {
+                memcpy(task->body, task->header_buf + task->body_offset, copy_size);
+                task->body_size = copy_size;
+            }
+        }
+        else
+        {
+            int copy_size = size;
+            if (task->body_size + copy_size >= content_length)
+            {
+                copy_size = content_length - task->body_size;
+                task->done = 1;
+            }
+            memcpy(task->body, buf, copy_size);
+            task->body_size += copy_size;
+
+            if (task->done)
+                task_done(task);
+        }
     }
 
     return 0;
@@ -158,4 +176,25 @@ int CHttpServer::do_close(int sock)
     }
 
     return CTcpServer::do_close(sock);
+}
+
+int CHttpServer::task_done(http_task_t *task)
+{
+    if (!task)
+        return -1;
+
+    char log_buf[1024];
+    snprintf(log_buf, sizeof(log_buf), "%d", task->req.m_header.get_method());
+    LOG_INFO(log_buf);
+    LOG_INFO(task->req.m_header.get_uri());
+
+    int size = 0;
+    char **p = task->req.m_header.get_keys(&size);
+    for (char **q = p; q - p < size; q++)
+    {
+        char log_buf[1024];
+        snprintf(log_buf, sizeof(log_buf), "%s:%s", *q, task->req.m_header.get_value(*q));
+        LOG_INFO(log_buf);
+    }
+    return 0;
 }
