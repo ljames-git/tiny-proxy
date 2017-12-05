@@ -8,10 +8,10 @@
 
 struct http_task_t
 {
-    int sock;
-    int body_offset;
-    int header_size;
-    int header_buf_size;
+    int sock;                           // socket
+    int body_offset;                    // body position in header buf
+    int header_size;                    // the size of header
+    int header_buf_size;                // valid bytes in header_buf
     CHttpRequest req;
     CHttpResponse res;
     char header_buf[HTTP_HEADER_LEN];

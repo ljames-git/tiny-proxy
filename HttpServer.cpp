@@ -35,6 +35,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
             *(p - 1) = 0;
             if (strlen(q) == 0)
             {
+                // header end
                 {
                     char log_buf[1024];
                     snprintf(log_buf, sizeof(log_buf), "%d", task->req.m_header.get_method());
@@ -57,6 +58,9 @@ int CHttpServer::parse_req_header(http_task_t *task)
 
             if (task->req.m_header.get_method() == HTTP_METHOD_NONE)
             {
+                // parse first line
+                // [method] [path] HTTP/x.x
+
                 char *t = q;
 
                 // parse method
@@ -76,7 +80,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
                 else
                     return -1;
 
-                // parse uri
+                // parse uri/path
                 char *r = CStringUtil::trim(t + 1);
                 for (t = r; *t && *t != ' '; t++);
                 *t = 0;
@@ -85,6 +89,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
             }
             else
             {
+                // parse other header items
                 char *t = q;
                 for (; *t && *t != ':'; t++);
                 if (*t == ':')
@@ -106,6 +111,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
 
     if (task->header_size >= HTTP_HEADER_LEN)
     {
+        // header is too long
     }
 
     return 0;
