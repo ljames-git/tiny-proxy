@@ -1,9 +1,79 @@
+#include <vector>
+#include <string>
 #include <stdlib.h>
 #include <string.h>
+
+#include "curl/curl.h"
 
 #include "common.h"
 #include "StringUtil.h"
 #include "HttpServer.h"
+
+
+static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)  
+{  
+    std::vector<char>* wbuf = dynamic_cast<std::vector<char>*>((std::vector<char> *)lpVoid);  
+    if( NULL == wbuf || NULL == buffer )  
+    {  
+        return -1;  
+    }  
+
+    char* pData = (char*)buffer;  
+    wbuf->insert(wbuf->end(), pData, pData + size * nmemb);
+    return nmemb;  
+}  
+
+int send_req(CHttpServer *server, http_task_t *task)
+{
+    CURLcode res;
+    CURL* curl = curl_easy_init();
+    if(NULL == curl)
+        return -1;
+
+    std::vector<char> wbuf;
+    std::string url = "";
+    CHttpHeader& header = task->req.m_header;
+    url += header.get_uri();
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+
+    struct curl_slist *list = NULL;
+    int size = 0;
+    char **p = header.get_keys(&size);
+    for (char **q = p; q - p < size; q++)
+    {
+        char buf[1024];
+        snprintf(buf, sizeof(buf), "%s:%s", *q, header.get_value(*q));
+        list = curl_slist_append(list, buf);
+    }
+    delete []p;
+
+    if (list)
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+
+    switch(header.get_method())
+    {
+    case HTTP_METHOD_POST:
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, task->body_size);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, task->body);
+        break;
+    default:
+        break;
+    }
+    curl_easy_setopt(curl, CURLOPT_READFUNCTION, NULL);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, OnWriteData);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&wbuf);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+    curl_easy_setopt(curl, CURLOPT_HEADER, 1);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3);
+    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+    res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+
+    server->get_model()->write(task->sock, wbuf.data(), wbuf.size(), server);
+    return 0;
+}
 
 CHttpServer::CHttpServer():
     CTcpServer(80)
@@ -36,7 +106,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
             if (strlen(q) == 0)
             {
                 // header end
-                task->body_offset = p - task->header_buf + 1;
+                task->body_offset = ++(task->header_size);
                 return 1;
             }
 
@@ -103,6 +173,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
 
 int CHttpServer::on_data(int sock, char *buf, int size)
 {
+    // find task
     http_task_t *task = NULL;
     if (m_task_map.find(sock) == m_task_map.end())
     {
@@ -114,20 +185,26 @@ int CHttpServer::on_data(int sock, char *buf, int size)
     }
     task = m_task_map[sock];
 
-    if (task->done)
+    // ignore data when request done
+    if (task->req_done)
         return 0;
 
     if (task->body_offset == 0)
     {
+        // receiving header
         int copy_size = size > HTTP_HEADER_LEN - task->header_buf_size ? HTTP_HEADER_LEN - task->header_buf_size : size;
         memcpy(task->header_buf + task->header_size, buf, copy_size);
         task->header_buf_size += copy_size;
     }
 
+    // parse header 
     int state = parse_req_header(task);
+
+    // return negtive means error occurred
     if (state < 0)
         return -1;
 
+    // positive means header done
     if (state > 0)
     {
         int content_length = task->req.m_header.get_content_length();
@@ -140,26 +217,29 @@ int CHttpServer::on_data(int sock, char *buf, int size)
             if (!task->body)
                 return -1;
 
+            // copy body data from header buf if any
             int copy_size = task->header_buf_size - task->body_offset;
             if (copy_size > 0)
             {
                 memcpy(task->body, task->header_buf + task->body_offset, copy_size);
-                task->body_size = copy_size;
+                task->body_size += copy_size;
             }
         }
         else
         {
             int copy_size = size;
             if (task->body_size + copy_size >= content_length)
-            {
                 copy_size = content_length - task->body_size;
-                task->done = 1;
-            }
+
             memcpy(task->body, buf, copy_size);
             task->body_size += copy_size;
+        }
 
-            if (task->done)
-                task_done(task);
+        if (task->body_size >= content_length)
+        {
+            // request done
+            task->req_done = 1;
+            task_done(task);
         }
     }
 
@@ -183,18 +263,6 @@ int CHttpServer::task_done(http_task_t *task)
     if (!task)
         return -1;
 
-    char log_buf[1024];
-    snprintf(log_buf, sizeof(log_buf), "%d", task->req.m_header.get_method());
-    LOG_INFO(log_buf);
-    LOG_INFO(task->req.m_header.get_uri());
-
-    int size = 0;
-    char **p = task->req.m_header.get_keys(&size);
-    for (char **q = p; q - p < size; q++)
-    {
-        char log_buf[1024];
-        snprintf(log_buf, sizeof(log_buf), "%s:%s", *q, task->req.m_header.get_value(*q));
-        LOG_INFO(log_buf);
-    }
+    send_req(this, task);
     return 0;
 }

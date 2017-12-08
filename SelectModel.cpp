@@ -89,7 +89,7 @@ int CSelectModel::set_timeout(int milli_sec)
     return 0;
 }
 
-int CSelectModel::write(int fd, char *buf, int size, IRwComponent *component)
+int CSelectModel::write(int fd, const char *buf, int size, IRwComponent *component)
 {
     if (fd < 0 || fd >= FD_SETSIZE || buf == NULL || size <= 0 || component == NULL)
         return -1;
@@ -104,7 +104,10 @@ int CSelectModel::write(int fd, char *buf, int size, IRwComponent *component)
         return -1;
 
     if (m_components[fd] && component != m_components[fd])
+    {
+        delete obj;
         return -2;
+    }
 
     m_components[fd] = component;
     memcpy(obj->m_buffer, buf, size);

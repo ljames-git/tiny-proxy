@@ -74,7 +74,7 @@ int CTcpServer::on_error(int sock)
 
 int CTcpServer::on_write_done(int sock)
 {
-    return 0;
+    return do_close(sock);
 }
 
 int CTcpServer::do_close(int sock)

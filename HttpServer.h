@@ -13,7 +13,7 @@ struct http_task_t
     int header_size;                    // the size of header
     int header_buf_size;                // valid bytes in header_buf
     int body_size;                      // current body size
-    int done;                           // body received done
+    int req_done;                       // body received done
     char *body;
     CHttpRequest req;
     CHttpResponse res;
@@ -25,7 +25,7 @@ struct http_task_t
         header_size(0),
         header_buf_size(0),
         body_size(0),
-        done(0),
+        req_done(0),
         body(NULL)
     {
         header_buf[0] = 0;
