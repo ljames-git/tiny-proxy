@@ -53,7 +53,6 @@ int CTcpServer::on_data(int sock, char *buf, int size)
     if (buf == NULL || size <= 0)
         return -1;
 
-    LOG_INFO(buf);
     close(sock);
     IMultiPlexer *multi_plexer = get_model();
     if (!multi_plexer || multi_plexer->clear_fd(sock) != 0)
@@ -79,9 +78,7 @@ int CTcpServer::on_write_done(int sock)
 
 int CTcpServer::do_close(int sock)
 {
-    char log_buf[1024];
-    snprintf(log_buf, sizeof(log_buf), "close sock: %d", sock);
-    LOG_INFO(log_buf);
+    LOG_INFO("close sock: %d", sock);
 
     if (sock == m_serv_sock)
     {

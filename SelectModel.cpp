@@ -170,10 +170,7 @@ int CSelectModel::start()
                 IRwComponent *component = m_components[fd];
                 if (component == NULL)
                 {
-                    char log_buf[1024];
-                    snprintf(log_buf, sizeof(log_buf), "cannot find registered component, sock: %d", fd);
-                    LOG_INFO(log_buf);
-
+                    LOG_INFO("cannot find registered component, sock: %d", fd);
                     close(fd);
                     continue;
                 }
@@ -187,10 +184,7 @@ int CSelectModel::start()
                     {
                         if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
                         {
-                            char log_buf[1024];
-                            snprintf(log_buf, sizeof(log_buf), "accept error, sock: %d", fd);
-                            LOG_INFO(log_buf);
-
+                            LOG_INFO("accept error, sock: %d", fd);
                             component->on_error(fd);
                         }
                         continue;
@@ -208,19 +202,13 @@ int CSelectModel::start()
                     ioctl(fd, FIONREAD, &to_read);
                     if (to_read == 0)
                     {
-                        char log_buf[1024];
-                        snprintf(log_buf, sizeof(log_buf), "sock closed by peer, sock: %d", fd);
-                        LOG_INFO(log_buf);
-
+                        LOG_INFO("sock closed by peer, sock: %d", fd);
                         component->on_close(fd);
                         continue;
                     }
                     if (to_read < 0)
                     {
-                        char log_buf[1024];
-                        snprintf(log_buf, sizeof(log_buf), "read error on sock: %d", fd);
-                        LOG_INFO(log_buf);
-
+                        LOG_INFO("read error on sock: %d", fd);
                         component->on_error(fd);
                         continue;
                     }
@@ -228,19 +216,15 @@ int CSelectModel::start()
                     char *buf = new char[to_read];
                     if (buf == NULL)
                     {
-                        char log_buf[1024];
-                        snprintf(log_buf, sizeof(log_buf), "not enough memory, bytes: %d", to_read);
-                        LOG_INFO(log_buf);
+                        LOG_INFO("not enough memory, bytes: %d", to_read);
                         continue;
                     }
 
                     int nread = read(fd, buf, to_read);
                     if (nread == 0)
                     {
-                        char log_buf[1024]; snprintf(log_buf, sizeof(log_buf), "sock closed by peer, sock: %d", fd);
-                        LOG_INFO(log_buf);
-
                         delete []buf;
+                        LOG_INFO("sock closed by peer, sock: %d", fd);
                         component->on_close(fd);
 
                         continue;
@@ -249,10 +233,7 @@ int CSelectModel::start()
                     {
                         if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
                         {
-                            char log_buf[1024];
-                            snprintf(log_buf, sizeof(log_buf), "read error on sock: %d", fd);
-                            LOG_INFO(log_buf);
-
+                            LOG_INFO("read error on sock: %d", fd);
                             component->on_error(fd);
                         }
 
@@ -271,10 +252,7 @@ int CSelectModel::start()
                 IRwComponent *component = m_components[fd];
                 if (component == NULL)
                 {
-                    char log_buf[1024];
-                    snprintf(log_buf, sizeof(log_buf), "cannot find registered component, sock: %d", fd);
-                    LOG_INFO(log_buf);
-
+                    LOG_INFO("cannot find registered component, sock: %d", fd);
                     close(fd);
                     continue;
                 }

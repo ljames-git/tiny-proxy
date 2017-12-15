@@ -9,25 +9,44 @@
 #define LOG_LEVEL_WARN "WARN"
 #define LOG_LEVEL_ERROR "ERROR"
 
-#define LOG_STREAM_ERR(level, str) \
+#define LOG_TAG(level) \
 {\
     time_t t = time(NULL);\
     struct tm *local = localtime(&t); \
-    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d [%s] %s\n",\
+    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d [%s] ",\
             local->tm_year + 1900,\
             local->tm_mon + 1,\
             local->tm_mday + 1,\
             local->tm_hour,\
             local->tm_min,\
             local->tm_sec,\
-            level,\
-            str);\
+            level);\
 }
 
-#define LOG_INFO(str) LOG_STREAM_ERR(LOG_LEVEL_INFO, str)
-#define LOG_DEBUG(str) LOG_STREAM_ERR(LOG_LEVEL_DEBUG, str)
-#define LOG_WARN(str) LOG_STREAM_ERR(LOG_LEVEL_WARN, str)
-#define LOG_ERROR(str) LOG_STREAM_ERR(LOG_LEVEL_ERROR, str)
+#define LOG_INFO(fmt, arg...) \
+{\
+    LOG_TAG(LOG_LEVEL_INFO);\
+    fprintf(stderr, fmt, ##arg);\
+    fprintf(stderr, "\n");\
+}
+#define LOG_DEBUG(fmt, arg...) \
+{\
+    LOG_TAG(LOG_LEVEL_DEBUG);\
+    fprintf(stderr, fmt, ##arg);\
+    fprintf(stderr, "\n");\
+}
+#define LOG_WARN(fmt, arg...) \
+{\
+    LOG_TAG(LOG_LEVEL_WARN);\
+    fprintf(stderr, fmt, ##arg);\
+    fprintf(stderr, "\n");\
+}
+#define LOG_ERROR(fmt, arg...) \
+{\
+    LOG_TAG(LOG_LEVEL_ERROR);\
+    fprintf(stderr, fmt, ##arg);\
+    fprintf(stderr, "\n");\
+}
 
 
 #define ERROR_ON_NEG(func) \
