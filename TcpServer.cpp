@@ -78,7 +78,7 @@ int CTcpServer::on_write_done(int sock)
 
 int CTcpServer::do_close(int sock)
 {
-    LOG_INFO("close sock: %d", sock);
+    LOG_DEBUG("close sock: %d", sock);
 
     if (sock == m_serv_sock)
     {

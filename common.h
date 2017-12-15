@@ -4,8 +4,12 @@
 #include <time.h>
 #include <stdio.h>
 
-#define LOG_LEVEL_INFO "INFO"
+#ifdef OPEN_LOG_DEBUG
+#define OPEN_LOG_INFO
+#endif //OPEN_LOG_DEBUG
+
 #define LOG_LEVEL_DEBUG "DEBUG"
+#define LOG_LEVEL_INFO "INFO"
 #define LOG_LEVEL_WARN "WARN"
 #define LOG_LEVEL_ERROR "ERROR"
 
@@ -23,18 +27,28 @@
             level);\
 }
 
-#define LOG_INFO(fmt, arg...) \
-{\
-    LOG_TAG(LOG_LEVEL_INFO);\
-    fprintf(stderr, fmt, ##arg);\
-    fprintf(stderr, "\n");\
-}
+#ifdef OPEN_LOG_DEBUG
 #define LOG_DEBUG(fmt, arg...) \
 {\
     LOG_TAG(LOG_LEVEL_DEBUG);\
     fprintf(stderr, fmt, ##arg);\
     fprintf(stderr, "\n");\
 }
+#else //OPEN_LOG_DEBUG
+#define LOG_DEBUG(fmt, arg...) 
+#endif //OPEN_LOG_DEBUG
+
+#ifdef OPEN_LOG_INFO
+#define LOG_INFO(fmt, arg...) \
+{\
+    LOG_TAG(LOG_LEVEL_INFO);\
+    fprintf(stderr, fmt, ##arg);\
+    fprintf(stderr, "\n");\
+}
+#else //OPEN_LOG_INFO
+#define LOG_INFO(fmt, arg...) 
+#endif //OPEN_LOG_INFO
+
 #define LOG_WARN(fmt, arg...) \
 {\
     LOG_TAG(LOG_LEVEL_WARN);\
