@@ -28,7 +28,10 @@ int send_req(CHttpServer *server, http_task_t *task)
     CURLcode res;
     CURL* curl = curl_easy_init();
     if(NULL == curl)
+    {
+        LOG_WARN("failed to init curl");
         return -1;
+    }
 
     std::vector<char> wbuf;
     std::string url = "";
@@ -71,7 +74,15 @@ int send_req(CHttpServer *server, http_task_t *task)
     res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
 
-    server->get_model()->write(task->sock, wbuf.data(), wbuf.size(), server);
+    if (res == CURLE_OK)
+    {
+        server->get_model()->write(task->sock, wbuf.data(), wbuf.size(), server);
+    }
+    else
+    {
+        server->send_404(task);
+    }
+
     return 0;
 }
 
@@ -89,10 +100,29 @@ CHttpServer::~CHttpServer()
 {
 }
 
+int CHttpServer::send_404(http_task_t *task)
+{
+    if (!task)
+    {
+        LOG_WARN("CHttpServer::send_404 task is null");
+        return -1;
+    }
+
+    const char *content = "HTTP/1.1 404 Not Found\r\nServer: Tiny-Proxy/1.1\r\n\r\n";
+    int len = strlen(content);
+    get_model()->write(task->sock, content, len, this);
+
+    return 0;
+}
+
 int CHttpServer::parse_req_header(http_task_t *task)
 {
     if (task == NULL) 
+    {
+        LOG_WARN("CHttpServer::parse_req_header task null");
         return -1;
+    }
+
     if (task->body_offset > 0)
         return 1;
 
@@ -132,7 +162,10 @@ int CHttpServer::parse_req_header(http_task_t *task)
                 else if (strcmp(method, "CONNECT") == 0)
                     task->req.m_header.set_method(HTTP_METHOD_CONNECT);
                 else
+                {
+                    LOG_WARN("CHttpServer::parse_req_header unsupported method: %s", method);
                     return -1;
+                }
 
                 // parse uri/path
                 char *r = CStringUtil::trim(t + 1);
@@ -166,6 +199,8 @@ int CHttpServer::parse_req_header(http_task_t *task)
     if (task->header_size >= HTTP_HEADER_LEN)
     {
         // header is too long
+        LOG_WARN("CHttpServer::parse_req_header header is too long, size: %d", task->header_size );
+        return -1;
     }
 
     return 0;
@@ -179,7 +214,10 @@ int CHttpServer::on_data(int sock, char *buf, int size)
     {
         task = new http_task_t(sock);
         if (task == NULL)
+        {
+            LOG_WARN("CHttpServer::on_data task is null");
             return -1;
+        }
 
         m_task_map[sock] = task;
     }
@@ -202,20 +240,29 @@ int CHttpServer::on_data(int sock, char *buf, int size)
 
     // return negtive means error occurred
     if (state < 0)
+    {
+        LOG_WARN("CHttpServer::on_data parse request error");
         return -1;
+    }
 
     // positive means header done
     if (state > 0)
     {
         int content_length = task->req.m_header.get_content_length();
         if (content_length < 0)
+        {
+            LOG_WARN("CHttpServer::on_data content length invalid: %d", content_length);
             return -1;
+        }
 
         if (!task->body)
         {
             task->body = new char[content_length];
             if (!task->body)
+            {
+                LOG_WARN("CHttpServer::on_data alloc body memory error");
                 return -1;
+            }
 
             // copy body data from header buf if any
             int copy_size = task->header_buf_size - task->body_offset;
@@ -261,7 +308,10 @@ int CHttpServer::do_close(int sock)
 int CHttpServer::task_done(http_task_t *task)
 {
     if (!task)
+    {
+        LOG_WARN("CHttpServer::task_done task is null");
         return -1;
+    }
 
     send_req(this, task);
     return 0;

@@ -51,6 +51,7 @@ public:
 
 public:
     virtual int on_data(int sock, char *buf, int size);
+    int send_404(http_task_t *task);
 
 protected:
     virtual int do_close(int sock);
@@ -58,6 +59,7 @@ protected:
 private:
     int parse_req_header(http_task_t *task);
     int task_done(http_task_t *task);
+
     task_map_t m_task_map;
 };
 
