@@ -51,7 +51,7 @@ public:
 
 public:
     virtual int on_data(int sock, char *buf, int size);
-    int send_404(http_task_t *task);
+    virtual int send_404(http_task_t *task);
 
 protected:
     virtual int do_close(int sock);

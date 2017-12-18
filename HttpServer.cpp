@@ -108,7 +108,7 @@ int CHttpServer::send_404(http_task_t *task)
         return -1;
     }
 
-    const char *content = "HTTP/1.1 404 Not Found\r\nServer: Tiny-Proxy/1.1\r\n\r\n";
+    const char *content = "HTTP/1.1 404 Not Found\r\nServer: Tiny-Proxy/0.1\r\n\r\n";
     int len = strlen(content);
     get_model()->write(task->sock, content, len, this);
 
@@ -199,7 +199,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
     if (task->header_size >= HTTP_HEADER_LEN)
     {
         // header is too long
-        LOG_WARN("CHttpServer::parse_req_header header is too long, size: %d", task->header_size );
+        LOG_WARN("CHttpServer::parse_req_header header is too long, size: %d, uri: %s", task->header_size, task->req.m_header.get_uri());
         return -1;
     }
 
