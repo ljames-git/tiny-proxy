@@ -68,8 +68,8 @@ int send_req(CHttpServer *server, http_task_t *task)
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&wbuf);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(curl, CURLOPT_HEADER, 1);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
     res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
@@ -81,6 +81,18 @@ int send_req(CHttpServer *server, http_task_t *task)
     else
     {
         server->send_404(task);
+        LOG_WARN("404 from %s, ret: %d", url.c_str(), res);
+
+        /*
+        char **p = header.get_keys(&size);
+        for (char **q = p; q - p < size; q++)
+        {
+            char buf[1024];
+            snprintf(buf, sizeof(buf), "%s:%s", *q, header.get_value(*q));
+            LOG_WARN(buf);
+        }
+        delete []p;
+        */
     }
 
     return 0;
@@ -200,6 +212,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
     {
         // header is too long
         LOG_WARN("CHttpServer::parse_req_header header is too long, size: %d, uri: %s", task->header_size, task->req.m_header.get_uri());
+        LOG_WARN("%s", task->header_buf);
         return -1;
     }
 
