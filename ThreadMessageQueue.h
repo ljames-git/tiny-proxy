@@ -17,7 +17,8 @@ public:
     virtual bool is_full();
 
 private:
-    int m_size;
+    int m_front;
+    int m_end;
     int m_capacity;
     char ** m_message_buf;
 };

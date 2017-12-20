@@ -2,14 +2,18 @@
 #include "ThreadMessageQueue.h"
 
 CThreadMessageQueue::CThreadMessageQueue():
-    m_size(0),
+    m_front(0),
+    m_end(0),
     m_capacity(0),
     m_message_buf(NULL)
 {
+    m_capacity = 1024;
+    m_message_buf = new char *[1024];
 }
 
 CThreadMessageQueue::CThreadMessageQueue(int size):
-    m_size(0),
+    m_front(0),
+    m_end(0),
     m_capacity(0),
     m_message_buf(NULL)
 {
@@ -28,23 +32,34 @@ CThreadMessageQueue::~CThreadMessageQueue()
 
 int CThreadMessageQueue::enqueue(char *msg)
 {
-    if (!msg || !m_message_buf)
+    if (!msg || !m_message_buf || m_capacity <= 0)
         return -1;
 
+    m_message_buf[m_end] = msg;
+    m_end = (m_end + 1) % m_capacity;
     return 0;
 }
 
 char * CThreadMessageQueue::dequeue()
 {
-    return 0;
+    if (is_empty() || m_capacity <= 0)
+        return NULL;
+
+    char * res = m_message_buf[m_front];
+    m_front = (m_front + 1) % m_capacity;
+    return res;
 }
 
 bool CThreadMessageQueue::is_empty()
 {
-    return m_size <= 0;
+    return m_end == m_front;
 }
 
 bool CThreadMessageQueue::is_full()
 {
-    return m_size >= m_capacity;
+    if (m_capacity <= 0)
+        return true;
+
+    int end = (m_end + 1) % m_capacity;
+    return end == m_front;
 }
