@@ -20,18 +20,18 @@ CSelectModel::CSelectModel()
     FD_ZERO(&m_read_set);
     FD_ZERO(&m_write_set);
     memset(m_components, 0, sizeof(m_components));
-    memset(m_rw_objects, 0, sizeof(m_rw_objects));
 }
 
 CSelectModel::~CSelectModel()
 {
     for (int i = 0; i < FD_SETSIZE; i++)
     {
-        if (m_rw_objects[i])
+        for (std::deque<CRwObject *>::iterator it = m_rw_obj_deque[i].begin(); it != m_rw_obj_deque[i].end(); it++)
         {
-            delete m_rw_objects[i];
-            m_rw_objects[i] = NULL;
+            if (*it)
+                delete *it;
         }
+        m_rw_obj_deque[i].clear();
     }
 }
 
@@ -83,11 +83,12 @@ int CSelectModel::clear_fd(int fd)
     FD_CLR(fd, &m_write_set);
     m_components[fd] = NULL;
 
-    if (m_rw_objects[fd])
+    for (std::deque<CRwObject *>::iterator it = m_rw_obj_deque[fd].begin(); it != m_rw_obj_deque[fd].end(); it++)
     {
-        delete m_rw_objects[fd];
-        m_rw_objects[fd] = NULL;
+        if (*it)
+            delete *it;
     }
+    m_rw_obj_deque[fd].clear();
 
     return 0;
 }
@@ -98,24 +99,18 @@ int CSelectModel::set_timeout(int milli_sec)
     return 0;
 }
 
-int CSelectModel::write(int fd, const char *buf, int size, IRwComponent *component)
+int CSelectModel::chunk_write(int fd, const char *buf, int size, IRwComponent *component, bool is_last)
 {
     if (fd < 0 || fd >= FD_SETSIZE || buf == NULL || size <= 0 || component == NULL)
     {
-        LOG_WARN("write failed, fd: %d, size: %d", fd, size);
+        LOG_WARN("chunk write failed, fd: %d, size: %d", fd, size);
         return -1;
     }
 
-    if (m_rw_objects[fd])
-    {
-        LOG_WARN("write failed, has object, fd: %d", fd);
-        return -1;
-    }
-
-    CRwObject *obj = CRwObject::create_object(size);
+    CRwObject *obj = CRwObject::create_object(size, is_last);
     if (obj == NULL)
     {
-        LOG_WARN("write failed, failed to create object");
+        LOG_WARN("chunk write failed, failed to create object");
         return -1;
     }
 
@@ -128,13 +123,64 @@ int CSelectModel::write(int fd, const char *buf, int size, IRwComponent *compone
 
     m_components[fd] = component;
     memcpy(obj->m_buffer, buf, size);
-    m_rw_objects[fd] = obj;
+    m_rw_obj_deque[fd].push_back(obj);
 
     FD_SET(fd, &m_write_set);
 
     return 0;
 }
 
+int CSelectModel::write(int fd, const char *buf, int size, IRwComponent *component)
+{
+    return chunk_write(fd, buf, size, component, true);
+}
+
+int CSelectModel::do_chunk_write(int fd)
+{
+    for (;;)
+    {
+        if (m_rw_obj_deque[fd].size() <= 0)
+        {
+            FD_CLR(fd, &m_write_set);
+            return 1;
+        }
+
+        CRwObject *obj = m_rw_obj_deque[fd].front();
+        if (obj == NULL)
+        {
+            LOG_WARN("failed to write, object null");
+            return -1;
+        }
+
+        int ret = ::write(fd, obj->m_buffer + obj->m_done_size, obj->m_left_size);
+        if (ret < 0)
+        {
+            if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+            {
+                LOG_WARN("failed to write, errno: %d", errno);
+                return -1;
+            }
+            return 1;
+        }
+
+        obj->m_done_size += ret;
+        obj->m_left_size -= ret;
+        if (obj->m_left_size <= 0)
+        {
+            bool is_last = obj->m_is_last;
+            delete obj;
+            m_rw_obj_deque[fd].pop_front();
+
+            if (is_last)
+                return 0;
+        }
+    }
+
+    LOG_WARN("chunk write, never run here");
+    return -1;
+}
+
+/*
 int CSelectModel::do_write(int fd)
 {
     CRwObject *obj = m_rw_objects[fd];
@@ -162,6 +208,7 @@ int CSelectModel::do_write(int fd)
 
     return 1;
 }
+*/
 
 int CSelectModel::start()
 {
@@ -284,19 +331,31 @@ int CSelectModel::start()
                     continue;
                 }
 
-                int ret = do_write(fd);
-                if (ret < 0)
+                if (m_rw_obj_deque[fd].size() > 0)
                 {
-                    LOG_WARN("do write error, ret: %d, sock: %d", ret, fd);
-                    component->on_error(fd);
+                    int ret = do_chunk_write(fd);
+                    if (ret < 0)
+                    {
+                        LOG_WARN("do write error, ret: %d, sock: %d", ret, fd);
+                        component->on_error(fd);
+                    }
+                    if (ret == 0)
+                    {
+                        for (std::deque<CRwObject *>::iterator it = m_rw_obj_deque[fd].begin(); it != m_rw_obj_deque[fd].end(); it++)
+                        {
+                            if (*it)
+                                delete *it;
+                        }
+                        m_rw_obj_deque[fd].clear();
+
+                        LOG_DEBUG("write done, sock: %d", fd);
+                        FD_CLR(fd, &m_write_set);
+                        component->on_write_done(fd);
+                    }
                 }
-                if (ret == 0)
+                else
                 {
-                    LOG_DEBUG("write done, sock: %d", fd);
-                    delete m_rw_objects[fd];
-                    m_rw_objects[fd] = NULL;
                     FD_CLR(fd, &m_write_set);
-                    component->on_write_done(fd);
                 }
             }
         }

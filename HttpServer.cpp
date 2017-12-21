@@ -9,9 +9,15 @@
 #include "StringUtil.h"
 #include "HttpServer.h"
 
+struct write_param_t
+{
+    CHttpServer *server;
+    http_task_t *task;
+};
 
 static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)  
 {  
+    /*
     std::vector<char>* wbuf = dynamic_cast<std::vector<char>*>((std::vector<char> *)lpVoid);  
     if( NULL == wbuf || NULL == buffer )  
     {  
@@ -20,6 +26,9 @@ static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)
 
     char* pData = (char*)buffer;  
     wbuf->insert(wbuf->end(), pData, pData + size * nmemb);
+    */
+    write_param_t *param = (write_param_t *)lpVoid;  
+    param->server->get_model()->chunk_write(param->task->sock, (char *)buffer, size * nmemb, param->server);
     return nmemb;  
 }  
 
@@ -63,20 +72,25 @@ int send_req(CHttpServer *server, http_task_t *task)
     default:
         break;
     }
+
+    write_param_t param = {server, task};
     curl_easy_setopt(curl, CURLOPT_READFUNCTION, NULL);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, OnWriteData);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&wbuf);
+    //curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&wbuf);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&param);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(curl, CURLOPT_HEADER, 1);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+    //curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
     res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
 
     if (res == CURLE_OK)
     {
-        server->get_model()->write(task->sock, wbuf.data(), wbuf.size(), server);
+        char x[] = "\r\n";
+        server->get_model()->write(task->sock, x, strlen(x), server);
+        //server->get_model()->write(task->sock, wbuf.data(), wbuf.size(), server);
     }
     else
     {
