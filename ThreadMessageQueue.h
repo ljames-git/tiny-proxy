@@ -1,6 +1,7 @@
 #ifndef __THREAD_MESSAGE_QUEUE_H__
 #define __THREAD_MESSAGE_QUEUE_H__
 
+#include <pthread.h>
 #include "MessageQueue.h"
 
 class CThreadMessageQueue : public IMessageQueue
@@ -21,6 +22,8 @@ private:
     int m_end;
     int m_capacity;
     char ** m_message_buf;
+    pthread_cond_t m_cond;
+    pthread_mutex_t m_mutex;
 };
 
 #endif //__THREAD_MESSAGE_QUEUE_H__

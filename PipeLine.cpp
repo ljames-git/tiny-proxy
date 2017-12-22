@@ -35,7 +35,7 @@ int CPipeLine::get_task_num()
     return m_thread_num;
 }
 
-int CPipeLine::set_next(ITaskPool *task_pool)
+int CPipeLine::set_next(CPipeLine *task_pool)
 {
     if (!task_pool)
         return -1;
@@ -44,15 +44,16 @@ int CPipeLine::set_next(ITaskPool *task_pool)
     return 0;
 }
 
-ITaskPool * CPipeLine::get_next()
+CPipeLine * CPipeLine::get_next()
 {
     return m_next;
 }
 
 int CPipeLine::start(int num)
 {
-    if (num >= 0)
-        set_task_num(num);
+    if (set_task_num(num) < 0)
+        return -1;
+
     return start();
 }
 

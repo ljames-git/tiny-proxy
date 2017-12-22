@@ -9,6 +9,8 @@ CThreadMessageQueue::CThreadMessageQueue():
 {
     m_capacity = 1024;
     m_message_buf = new char *[1024];
+    pthread_cond_init(&m_cond, NULL);
+    pthread_mutex_init(&m_mutex, NULL);
 }
 
 CThreadMessageQueue::CThreadMessageQueue(int size):
@@ -19,6 +21,8 @@ CThreadMessageQueue::CThreadMessageQueue(int size):
 {
     if (size > 0)
     {
+        pthread_cond_init(&m_cond, NULL);
+        pthread_mutex_init(&m_mutex, NULL);
         m_message_buf = new char* [size];
         m_capacity = size;
     }
@@ -35,18 +39,32 @@ int CThreadMessageQueue::enqueue(char *msg)
     if (!msg || !m_message_buf || m_capacity <= 0)
         return -1;
 
-    m_message_buf[m_end] = msg;
-    m_end = (m_end + 1) % m_capacity;
-    return 0;
+    int ret = -1;
+    pthread_mutex_lock(&m_mutex);
+    if (!is_full())
+    {
+        m_message_buf[m_end] = msg;
+        m_end = (m_end + 1) % m_capacity;
+        ret = 0;
+    }
+    pthread_cond_signal(&m_cond);
+    pthread_mutex_unlock(&m_mutex);
+
+    return ret;
 }
 
 char * CThreadMessageQueue::dequeue()
 {
-    if (is_empty() || m_capacity <= 0)
+    if (m_capacity <= 0)
         return NULL;
 
+    pthread_mutex_lock(&m_mutex);
+    while (is_empty())
+        pthread_cond_wait(&m_cond, &m_mutex);
     char * res = m_message_buf[m_front];
     m_front = (m_front + 1) % m_capacity;
+    pthread_mutex_unlock(&m_mutex);
+
     return res;
 }
 
