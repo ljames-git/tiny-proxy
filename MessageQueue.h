@@ -4,8 +4,8 @@
 class IMessageQueue
 {
 public:
-    virtual int enqueue(char *msg) = 0;
-    virtual char * dequeue() = 0;
+    virtual int enqueue(void *msg) = 0;
+    virtual void * dequeue() = 0;
     virtual bool is_empty() = 0;
     virtual bool is_full() = 0;
 };

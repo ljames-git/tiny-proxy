@@ -4,14 +4,16 @@
 CPipeLine::CPipeLine():
     m_is_active(false),
     m_thread_num(1),
-    m_next(NULL)
+    m_next(NULL),
+    m_msg_queue(1024)
 {
 }
 
 CPipeLine::CPipeLine(int thread_num):
     m_is_active(false),
     m_thread_num(1),
-    m_next(NULL)
+    m_next(NULL),
+    m_msg_queue(1024)
 {
     if (thread_num > 0)
         m_thread_num = thread_num;
@@ -58,6 +60,11 @@ int CPipeLine::start(int num)
 }
 
 int CPipeLine::start()
+{
+    return 0;
+}
+
+int CPipeLine::message_proc(void *msg)
 {
     return 0;
 }

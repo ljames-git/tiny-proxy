@@ -34,7 +34,7 @@ CThreadMessageQueue::~CThreadMessageQueue()
         delete []m_message_buf;
 }
 
-int CThreadMessageQueue::enqueue(char *msg)
+int CThreadMessageQueue::enqueue(void *msg)
 {
     if (!msg || !m_message_buf || m_capacity <= 0)
         return -1;
@@ -43,7 +43,7 @@ int CThreadMessageQueue::enqueue(char *msg)
     pthread_mutex_lock(&m_mutex);
     if (!is_full())
     {
-        m_message_buf[m_end] = msg;
+        m_message_buf[m_end] = (char *)msg;
         m_end = (m_end + 1) % m_capacity;
         ret = 0;
     }
@@ -53,7 +53,7 @@ int CThreadMessageQueue::enqueue(char *msg)
     return ret;
 }
 
-char * CThreadMessageQueue::dequeue()
+void * CThreadMessageQueue::dequeue()
 {
     if (m_capacity <= 0)
         return NULL;
@@ -65,7 +65,7 @@ char * CThreadMessageQueue::dequeue()
     m_front = (m_front + 1) % m_capacity;
     pthread_mutex_unlock(&m_mutex);
 
-    return res;
+    return (void *)res;
 }
 
 bool CThreadMessageQueue::is_empty()

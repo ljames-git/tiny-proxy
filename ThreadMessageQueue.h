@@ -12,8 +12,8 @@ public:
     virtual ~CThreadMessageQueue();
 
 public:
-    virtual int enqueue(char *msg);
-    virtual char * dequeue();
+    virtual int enqueue(void *msg);
+    virtual void * dequeue();
     virtual bool is_empty();
     virtual bool is_full();
 
