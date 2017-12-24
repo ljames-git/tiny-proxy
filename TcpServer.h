@@ -1,15 +1,16 @@
 #ifndef __TCP_SERVER_H__
 #define __TCP_SERVER_H__
 
+#include "PipeLine.h"
 #include "MultiPlexer.h"
 #include "RwComponent.h"
 
-class CTcpServer: public IRwComponent
+class CTcpServer: public CPipeLine, public IRwComponent
 {
 public:
     CTcpServer(int port);
     ~CTcpServer();
-    int start();
+    virtual int process();
 
     virtual IMultiPlexer* get_model();
 

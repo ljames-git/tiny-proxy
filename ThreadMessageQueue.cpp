@@ -19,13 +19,13 @@ CThreadMessageQueue::CThreadMessageQueue(int size):
     m_capacity(0),
     m_message_buf(NULL)
 {
-    if (size > 0)
-    {
-        pthread_cond_init(&m_cond, NULL);
-        pthread_mutex_init(&m_mutex, NULL);
-        m_message_buf = new char* [size];
-        m_capacity = size;
-    }
+    if (size <= 0)
+        size = 1;
+
+    pthread_cond_init(&m_cond, NULL);
+    pthread_mutex_init(&m_mutex, NULL);
+    m_message_buf = new char* [size];
+    m_capacity = size;
 }
 
 CThreadMessageQueue::~CThreadMessageQueue()

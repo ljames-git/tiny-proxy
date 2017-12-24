@@ -94,7 +94,7 @@ int CTcpServer::do_close(int sock)
     return 0;
 }
 
-int CTcpServer::start()
+int CTcpServer::process()
 {
     if (m_port <= 0)
     {
@@ -125,6 +125,9 @@ int CTcpServer::start()
 
     IMultiPlexer *multi_plexer = get_model();
     if (!multi_plexer || multi_plexer->set_read_fd(m_serv_sock, this) != 0)
+        return -1;
+
+    if (multi_plexer->start() < 0)
         return -1;
 
     return 0;
