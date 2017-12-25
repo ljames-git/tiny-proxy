@@ -28,6 +28,8 @@ private:
     int m_thread_num;
     CPipeLine *m_next;
     pthread_t *m_threads;
+
+public:
     CThreadMessageQueue m_msg_queue;
 };
 
