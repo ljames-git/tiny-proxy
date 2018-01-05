@@ -23,6 +23,7 @@ public:
     virtual int clear_fd(int fd);
     virtual int set_timeout(int milli_sec);
     virtual int set_read_fd(int fd, IRwComponent *component);
+    virtual int clear_read_fd(int fd);
     virtual int write(int fd, const char *buf, int size, IRwComponent *component);
     virtual int chunk_write(int fd, const char *buf, int size, IRwComponent *component, bool is_last = true);
 

@@ -8,8 +8,13 @@
 #define OPEN_LOG_INFO
 #endif //OPEN_LOG_DEBUG
 
+#ifdef OPEN_LOG_INFO
+#define OPEN_LOG_STAT
+#endif //OPEN_LOG_INFO
+
 #define LOG_LEVEL_DEBUG "DEBUG"
 #define LOG_LEVEL_INFO "INFO"
+#define LOG_LEVEL_STAT "STAT"
 #define LOG_LEVEL_WARN "WARN"
 #define LOG_LEVEL_ERROR "ERROR"
 
@@ -48,6 +53,17 @@
 #else //OPEN_LOG_INFO
 #define LOG_INFO(fmt, arg...) 
 #endif //OPEN_LOG_INFO
+
+#ifdef OPEN_LOG_STAT
+#define LOG_STAT(fmt, arg...) \
+{\
+    LOG_TAG(LOG_LEVEL_STAT);\
+    fprintf(stderr, fmt, ##arg);\
+    fprintf(stderr, "\n");\
+}
+#else //OPEN_LOG_STAT
+#define LOG_STAT(fmt, arg...) 
+#endif //OPEN_LOG_STAT
 
 #define LOG_WARN(fmt, arg...) \
 {\

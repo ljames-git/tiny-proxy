@@ -235,10 +235,14 @@ int CHttpServer::task_done(http_task_t *task)
         return -1;
     }
 
+    LOG_STAT("task done: %s", task->req.m_header.get_uri());
+
     msg_t *msg = new msg_t;
     msg->server = this;
     msg->task = task;
     get_next()->m_msg_queue.enqueue(msg);
+
+    LOG_STAT("enqueue: %s", task->req.m_header.get_uri());
 
     return 0;
 }

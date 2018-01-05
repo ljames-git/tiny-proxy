@@ -10,6 +10,7 @@ public:
     virtual int clear_fd(int fd) = 0;
     virtual int set_timeout(int milli_sec) = 0;
     virtual int set_read_fd(int fd, IRwComponent *component) = 0;
+    virtual int clear_read_fd(int fd) = 0;
     virtual int write(int fd, const char *buf, int size, IRwComponent *component) = 0;
     virtual int chunk_write(int fd, const char *buf, int size, IRwComponent *component, bool is_last = false) = 0;
 };

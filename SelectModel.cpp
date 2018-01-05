@@ -71,6 +71,19 @@ int CSelectModel::set_read_fd(int fd, IRwComponent *component)
     return 0;
 }
 
+int CSelectModel::clear_read_fd(int fd)
+{
+    if (fd < 0 || fd >= FD_SETSIZE)
+    {
+        LOG_WARN("failed to clear read fd: %d", fd);
+        return -1;
+    }
+
+    FD_CLR(fd, &m_read_set);
+    m_components[fd] = NULL;
+    return 0;
+}
+
 int CSelectModel::clear_fd(int fd)
 {
     if (fd < 0 || fd >= FD_SETSIZE)

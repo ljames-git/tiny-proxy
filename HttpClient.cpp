@@ -76,8 +76,10 @@ int send_req(msg_t *msg)
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(curl, CURLOPT_HEADER, 1);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
-    //curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+
+    LOG_STAT("send req: %s", task->req.m_header.get_uri());
     res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
 
@@ -103,6 +105,7 @@ int send_req(msg_t *msg)
         delete []p;
         */
     }
+    LOG_STAT("req done: %s", task->req.m_header.get_uri());
 
     return 0;
 }
@@ -127,6 +130,8 @@ int CHttpClient::process()
         msg_t *msg = (msg_t *)m_msg_queue.dequeue();
         if (!msg)
             continue;
+
+        LOG_STAT("dequeue: %s", msg->task->req.m_header.get_uri());
         send_req(msg);
     }
     return 0;
