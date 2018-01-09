@@ -5,16 +5,16 @@
 #include <stdio.h>
 
 #ifdef OPEN_LOG_DEBUG
-#define OPEN_LOG_INFO
+#define OPEN_LOG_STAT
 #endif //OPEN_LOG_DEBUG
 
-#ifdef OPEN_LOG_INFO
-#define OPEN_LOG_STAT
-#endif //OPEN_LOG_INFO
+#ifdef OPEN_LOG_STAT
+#define OPEN_LOG_INFO
+#endif //OPEN_LOG_STAT
 
 #define LOG_LEVEL_DEBUG "DEBUG"
-#define LOG_LEVEL_INFO "INFO"
 #define LOG_LEVEL_STAT "STAT"
+#define LOG_LEVEL_INFO "INFO"
 #define LOG_LEVEL_WARN "WARN"
 #define LOG_LEVEL_ERROR "ERROR"
 

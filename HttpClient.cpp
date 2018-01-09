@@ -1,4 +1,5 @@
 #include <vector>
+#include <errno.h>
 #include <string.h>
 
 #include "curl/curl.h"
@@ -7,7 +8,57 @@
 #include "common.h"
 #include "HttpClient.h"
 
-static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)  
+static int write_with_timeout(int sock, char *buffer, int size, int timeout = 0)
+{
+    if (sock <= 0 || !buffer || size <= 0)
+    {
+        LOG_WARN("error on check, fd: %d, buffer: %llx, size: %d", sock, (unsigned long long)buffer, size);
+        return -1;
+    }
+
+    struct timeval ctv, tv, *ptv;
+    ptv = NULL;
+    if (timeout > 0)
+    {
+        tv.tv_sec = timeout / 1000;
+        tv.tv_usec = (timeout % 1000) * 1000;
+        ctv = tv;
+        ptv = &tv;
+    }
+
+    for (int wt = 0, left = size, r = 0; left > 0; left -= r, wt += r, ctv = tv)
+    {
+        fd_set wset;
+        FD_ZERO(&wset);
+        FD_SET(sock, &wset);
+        r = select(sock + 1, NULL, &wset, NULL, ptv);
+        if (r == 0)
+        {
+            return -2;
+        }
+
+        r = write(sock, buffer + wt, left);
+        if (FD_ISSET(sock, &wset))
+        {
+            if (r < 0)
+            {
+                if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+                {
+                    return -1;
+                }
+                r = 0;
+            }
+        }
+        else
+        {
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+static size_t on_write_data(void* buffer, size_t size, size_t nmemb, void* lpVoid)  
 {  
     /*
     std::vector<char>* wbuf = dynamic_cast<std::vector<char>*>((std::vector<char> *)lpVoid);  
@@ -18,10 +69,18 @@ static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)
 
     char* pData = (char*)buffer;  
     wbuf->insert(wbuf->end(), pData, pData + size * nmemb);
-    */
+
+
     msg_t *param = (msg_t *)lpVoid;  
-    param->server->get_model()->chunk_write(param->task->sock, (char *)buffer, size * nmemb, param->server);
-    return nmemb;  
+    if (param->server->get_model()->chunk_write(param->task->sock, (char *)buffer, size * nmemb, param->server) == 0)
+        return nmemb;  
+    return -1;
+    */
+
+    msg_t *param = (msg_t *)lpVoid;  
+    if (write_with_timeout(param->task->sock, (char *)buffer, size * nmemb, 0) == 0)
+        return nmemb;
+    return -1;
 }  
 
 
@@ -70,19 +129,20 @@ int send_req(msg_t *msg)
     }
 
     curl_easy_setopt(curl, CURLOPT_READFUNCTION, NULL);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, OnWriteData);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_write_data);
     //curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&wbuf);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)msg);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(curl, CURLOPT_HEADER, 1);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+    //curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
 
     LOG_STAT("send req: %s", task->req.m_header.get_uri());
     res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
 
+    /*
     if (res == CURLE_OK)
     {
         char x[] = "\r\n";
@@ -93,18 +153,10 @@ int send_req(msg_t *msg)
     {
         server->send_404(task);
         LOG_WARN("404 from %s, ret: %d", url.c_str(), res);
-
-        /*
-        char **p = header.get_keys(&size);
-        for (char **q = p; q - p < size; q++)
-        {
-            char buf[1024];
-            snprintf(buf, sizeof(buf), "%s:%s", *q, header.get_value(*q));
-            LOG_WARN(buf);
-        }
-        delete []p;
-        */
     }
+    */
+    task->res_done = 1;
+    server->do_close(task->sock);
     LOG_STAT("req done: %s", task->req.m_header.get_uri());
 
     return 0;

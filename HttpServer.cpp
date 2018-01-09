@@ -10,11 +10,13 @@
 CHttpServer::CHttpServer():
     CTcpServer(80)
 {
+    pthread_mutex_init(&m_map_mutex, NULL);
 }
 
 CHttpServer::CHttpServer(int port):
     CTcpServer(port)
 {
+    pthread_mutex_init(&m_map_mutex, NULL);
 }
 
 CHttpServer::~CHttpServer()
@@ -132,8 +134,10 @@ int CHttpServer::on_data(int sock, char *buf, int size)
 {
     // find task
     http_task_t *task = NULL;
+    pthread_mutex_lock(&m_map_mutex);
     if (m_task_map.find(sock) == m_task_map.end())
     {
+        pthread_mutex_unlock(&m_map_mutex);
         task = new http_task_t(sock);
         if (task == NULL)
         {
@@ -141,9 +145,11 @@ int CHttpServer::on_data(int sock, char *buf, int size)
             return -1;
         }
 
+        pthread_mutex_lock(&m_map_mutex);
         m_task_map[sock] = task;
     }
     task = m_task_map[sock];
+    pthread_mutex_unlock(&m_map_mutex);
 
     // ignore data when request done
     if (task->req_done)
@@ -215,6 +221,7 @@ int CHttpServer::on_data(int sock, char *buf, int size)
     return 0;
 }
 
+/*
 int CHttpServer::do_close(int sock)
 {
     task_map_t::iterator it = m_task_map.find(sock);
@@ -223,6 +230,25 @@ int CHttpServer::do_close(int sock)
         delete it->second;
         m_task_map.erase(it);
     }
+
+    return CTcpServer::do_close(sock);
+}
+*/
+
+int CHttpServer::do_close(int sock)
+{
+    pthread_mutex_lock(&m_map_mutex);
+    task_map_t::iterator it = m_task_map.find(sock);
+    if (it != m_task_map.end())
+    {
+        http_task_t *task = it->second;
+        if (!task->req_done || task->res_done)
+        {
+            delete it->second;
+            m_task_map.erase(it);
+        }
+    }
+    pthread_mutex_unlock(&m_map_mutex);
 
     return CTcpServer::do_close(sock);
 }
@@ -241,6 +267,8 @@ int CHttpServer::task_done(http_task_t *task)
     msg->server = this;
     msg->task = task;
     get_next()->m_msg_queue.enqueue(msg);
+
+    get_model()->clear_read_fd(task->sock);
 
     LOG_STAT("enqueue: %s", task->req.m_header.get_uri());
 

@@ -23,7 +23,7 @@ public:
     virtual int on_error(int sock);
     virtual int on_write_done(int sock);
 
-protected:
+//protected:
     virtual int do_close(int sock);
 
 private:

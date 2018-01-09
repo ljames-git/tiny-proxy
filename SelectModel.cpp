@@ -226,23 +226,24 @@ int CSelectModel::do_write(int fd)
 int CSelectModel::start()
 {
 
-    struct timeval tv, *ptv;
+    struct timeval ctv, tv, *ptv;
     ptv = NULL;
     if (m_timeout > 0)
     {
         tv.tv_sec = m_timeout / 1000;
         tv.tv_usec = (m_timeout % 1000) * 1000;
+        ctv = tv;
         ptv = &tv;
     }
 
-    int ret = 0; fd_set rset, wset;
+    int ret = 0; 
+    fd_set rset, wset;
     for (rset = m_read_set, wset = m_write_set;
             (ret = select(FD_SETSIZE, &rset, &wset, NULL, ptv)) >= 0;
-            rset = m_read_set, wset = m_write_set)
+            rset = m_read_set, wset = m_write_set, tv = ctv)
     {
         if (ret == 0)
         {
-            LOG_DEBUG("select return 0");
             continue;
         }
 

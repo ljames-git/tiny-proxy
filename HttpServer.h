@@ -14,6 +14,7 @@ struct http_task_t
     int header_buf_size;                // valid bytes in header_buf
     int body_size;                      // current body size
     int req_done;                       // body received done
+    int res_done;
     char *body;
     CHttpRequest req;
     CHttpResponse res;
@@ -26,6 +27,7 @@ struct http_task_t
         header_buf_size(0),
         body_size(0),
         req_done(0),
+        res_done(0),
         body(NULL)
     {
         header_buf[0] = 0;
@@ -53,7 +55,7 @@ public:
     virtual int on_data(int sock, char *buf, int size);
     virtual int send_404(http_task_t *task);
 
-protected:
+//protected:
     virtual int do_close(int sock);
 
 private:
@@ -61,6 +63,7 @@ private:
     int task_done(http_task_t *task);
 
     task_map_t m_task_map;
+    pthread_mutex_t m_map_mutex;
 };
 
 #endif //__HTTP_SERVER_H__

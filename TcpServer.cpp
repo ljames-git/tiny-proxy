@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <string.h>
 
 #include <fcntl.h>
@@ -127,8 +128,13 @@ int CTcpServer::process()
     if (!multi_plexer || multi_plexer->set_read_fd(m_serv_sock, this) != 0 || multi_plexer->set_timeout(50) != 0)
         return -1;
 
-    if (multi_plexer->start() < 0)
-        return -1;
+    //if (multi_plexer->start() < 0)
+    //    return -1;
+    for (;;)
+    {
+        multi_plexer->start();
+        LOG_WARN("select error, errno: %d", errno);
+    }
 
     return 0;
 }

@@ -1,12 +1,12 @@
 PWD := `pwd`
 SRC := $(wildcard *.c) $(wildcard *.cpp)
 OBJ := $(patsubst %.cpp, %.o, $(patsubst %.c, %.o, $(SRC)))
-DEP := $(patsubst %.cpp, %.d, $(patsubst %.c, %.d, $(SRC)))
+DEP := $(patsubst %.cpp, .%.d, $(patsubst %.c, .%.d, $(SRC)))
 GXX := g++
 TARGET := tiny_proxy
 CINCLUDE := -I. -Ilibcurl/include
 CFLAGS := -g -c -Wall -O0 $(CINCLUDE)
-MACROS := -DOPEN_LOG_STAT
+MACROS := -DOPEN_LOG_INFO
 LDFLAGS := 
 LDLIBS := -lpthread
 SUBDIRS := $(shell ls -F | grep /$$ | sed 's/\///g')
@@ -31,12 +31,12 @@ include $(DEP)
 %.o: %.cpp
 	$(GXX) -o $@ $(CFLAGS) $<
 
-%.d: %.cpp
+.%.d: %.cpp
 	set -e 
 	rm -f $@
 	$(GXX) -MM $(CINCLUDE) $(MACROS) $< | sed "s,\($*\)\.o[ :]*,\1.o $@ : ,g" > $@
 
-%.d: %.c
+.%.d: %.c
 	set -e 
 	rm -f $@
 	$(GXX) -MM $(CINCLUDE) $(MACROS) $< | sed "s,\($*\)\.o[ :]*,\1.o $@ : ,g" > $@
