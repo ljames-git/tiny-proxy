@@ -49,8 +49,8 @@ int CHttpServer::parse_req_header(http_task_t *task)
     if (task->body_offset > 0)
         return 1;
 
-    for (char *p = task->header_buf + task->header_size, *q = p;
-            task->header_size < HTTP_HEADER_LEN;
+    for (char *p = task->header_buf + task->header_size, *q = task->header_buf + task->header_item_offset;
+            task->header_size < task->header_buf_size && task->header_size < HTTP_HEADER_LEN;
             p++, task->header_size++)
     {
         if (*p == '\n' && p != task->header_buf && *(p - 1) == '\r')
@@ -116,6 +116,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
             }
 
             q = p + 1;
+            task->header_item_offset = q - task->header_buf;
         }
     }
 
@@ -268,7 +269,7 @@ int CHttpServer::task_done(http_task_t *task)
     msg->task = task;
     get_next()->m_msg_queue.enqueue(msg);
 
-    get_model()->clear_read_fd(task->sock);
+    //get_model()->clear_read_fd(task->sock);
 
     LOG_STAT("enqueue: %s", task->req.m_header.get_uri());
 

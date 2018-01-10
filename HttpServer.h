@@ -12,6 +12,7 @@ struct http_task_t
     int body_offset;                    // body position in header buf
     int header_size;                    // the size of header
     int header_buf_size;                // valid bytes in header_buf
+    int header_item_offset;             // the offset of next header item
     int body_size;                      // current body size
     int req_done;                       // body received done
     int res_done;
@@ -25,6 +26,7 @@ struct http_task_t
         body_offset(0),
         header_size(0),
         header_buf_size(0),
+        header_item_offset(0),
         body_size(0),
         req_done(0),
         res_done(0),

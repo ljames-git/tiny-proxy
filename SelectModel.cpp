@@ -254,8 +254,9 @@ int CSelectModel::start()
                 IRwComponent *component = m_components[fd];
                 if (component == NULL)
                 {
-                    LOG_WARN("cannot find registered component, sock: %d", fd);
+                    // fd might be closed by other threads
                     close(fd);
+                    FD_CLR(fd, &m_read_set);
                     continue;
                 }
 
@@ -340,8 +341,9 @@ int CSelectModel::start()
                 IRwComponent *component = m_components[fd];
                 if (component == NULL)
                 {
-                    LOG_WARN("cannot find registered component, sock: %d", fd);
+                    // fd might be closed by other threads
                     close(fd);
+                    FD_CLR(fd, &m_write_set);
                     continue;
                 }
 
