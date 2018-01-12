@@ -14,8 +14,9 @@
 CSelectModel *CSelectModel::m_inst = NULL;
 pthread_mutex_t CSelectModel::m_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-CSelectModel::CSelectModel()
-    :m_timeout(0)
+CSelectModel::CSelectModel() :
+    m_timeout(0),
+    m_pipe_line(NULL)
 {
     FD_ZERO(&m_read_set);
     FD_ZERO(&m_write_set);
@@ -24,15 +25,6 @@ CSelectModel::CSelectModel()
 
 CSelectModel::~CSelectModel()
 {
-    for (int i = 0; i < FD_SETSIZE; i++)
-    {
-        for (std::deque<CRwObject *>::iterator it = m_rw_obj_deque[i].begin(); it != m_rw_obj_deque[i].end(); it++)
-        {
-            if (*it)
-                delete *it;
-        }
-        m_rw_obj_deque[i].clear();
-    }
 }
 
 CSelectModel *CSelectModel::instance()
@@ -50,11 +42,23 @@ CSelectModel *CSelectModel::instance()
     return m_inst;
 }
 
+int CSelectModel::set_pipe_line(CPipeLine *pipe_line)
+{
+    if (pipe_line == NULL)
+    {
+        LOG_WARN("fail to set pipe line: NULL");
+        return -1;
+    }
+
+    m_pipe_line = pipe_line;
+    return 0;
+}
+
 int CSelectModel::set_read_fd(int fd, IRwComponent *component)
 {
     if (fd < 0 || fd >= FD_SETSIZE || !component)
     {
-        LOG_WARN("failed to set read fd: %d", fd);
+        LOG_WARN("[CSelectModel::set_read_fd] failed to set read fd: %d", fd);
         return -1;
     }
 
@@ -67,20 +71,26 @@ int CSelectModel::set_read_fd(int fd, IRwComponent *component)
     }
 
     m_components[fd] = component;
-
     return 0;
 }
 
-int CSelectModel::clear_read_fd(int fd)
+int CSelectModel::set_write_fd(int fd, IRwComponent *component)
 {
-    if (fd < 0 || fd >= FD_SETSIZE)
+    if (fd < 0 || fd >= FD_SETSIZE || !component)
     {
-        LOG_WARN("failed to clear read fd: %d", fd);
+        LOG_WARN("failed to set write fd: %d", fd);
         return -1;
     }
 
-    FD_CLR(fd, &m_read_set);
-    m_components[fd] = NULL;
+    FD_SET(fd, &m_write_set);
+
+    if (m_components[fd] && component != m_components[fd])
+    {
+        LOG_WARN("failed to set read fd, has component, fd: %d", fd);
+        return -2;
+    }
+
+    m_components[fd] = component;
     return 0;
 }
 
@@ -96,13 +106,6 @@ int CSelectModel::clear_fd(int fd)
     FD_CLR(fd, &m_write_set);
     m_components[fd] = NULL;
 
-    for (std::deque<CRwObject *>::iterator it = m_rw_obj_deque[fd].begin(); it != m_rw_obj_deque[fd].end(); it++)
-    {
-        if (*it)
-            delete *it;
-    }
-    m_rw_obj_deque[fd].clear();
-
     return 0;
 }
 
@@ -112,119 +115,16 @@ int CSelectModel::set_timeout(int milli_sec)
     return 0;
 }
 
-int CSelectModel::chunk_write(int fd, const char *buf, int size, IRwComponent *component, bool is_last)
+int CSelectModel::run()
 {
-    if (fd < 0 || fd >= FD_SETSIZE || buf == NULL || size <= 0 || component == NULL)
+    if (m_pipe_line)
     {
-        LOG_WARN("chunk write failed, fd: %d, size: %d", fd, size);
-        return -1;
+        LOG_INFO("PIPE LINE MODE ON");
     }
-
-    CRwObject *obj = CRwObject::create_object(size, is_last);
-    if (obj == NULL)
+    else
     {
-        LOG_WARN("chunk write failed, failed to create object");
-        return -1;
+        LOG_INFO("PIPE LINE MODE OFF");
     }
-
-    if (m_components[fd] && component != m_components[fd])
-    {
-        LOG_WARN("write failed, component error");
-        delete obj;
-        return -2;
-    }
-
-    m_components[fd] = component;
-    memcpy(obj->m_buffer, buf, size);
-    m_rw_obj_deque[fd].push_back(obj);
-
-    FD_SET(fd, &m_write_set);
-
-    return 0;
-}
-
-int CSelectModel::write(int fd, const char *buf, int size, IRwComponent *component)
-{
-    return chunk_write(fd, buf, size, component, true);
-}
-
-int CSelectModel::do_chunk_write(int fd)
-{
-    for (;;)
-    {
-        if (m_rw_obj_deque[fd].size() <= 0)
-        {
-            FD_CLR(fd, &m_write_set);
-            return 1;
-        }
-
-        CRwObject *obj = m_rw_obj_deque[fd].front();
-        if (obj == NULL)
-        {
-            LOG_WARN("failed to write, object null");
-            return -1;
-        }
-
-        int ret = ::write(fd, obj->m_buffer + obj->m_done_size, obj->m_left_size);
-        if (ret < 0)
-        {
-            if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
-            {
-                LOG_WARN("failed to write, errno: %d", errno);
-                return -1;
-            }
-            return 1;
-        }
-
-        obj->m_done_size += ret;
-        obj->m_left_size -= ret;
-        if (obj->m_left_size <= 0)
-        {
-            bool is_last = obj->m_is_last;
-            delete obj;
-            m_rw_obj_deque[fd].pop_front();
-
-            if (is_last)
-                return 0;
-        }
-    }
-
-    LOG_WARN("chunk write, never run here");
-    return -1;
-}
-
-/*
-int CSelectModel::do_write(int fd)
-{
-    CRwObject *obj = m_rw_objects[fd];
-    if (obj == NULL)
-    {
-        LOG_WARN("failed to write, object null");
-        return -1;
-    }
-
-    int ret = ::write(fd, obj->m_buffer + obj->m_done_size, obj->m_left_size);
-    if (ret < 0)
-    {
-        if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
-        {
-            LOG_WARN("failed to write, errno: %d", errno);
-            return -1;
-        }
-        return 1;
-    }
-
-    obj->m_done_size += ret;
-    obj->m_left_size -= ret;
-    if (obj->m_left_size <= 0)
-        return 0;
-
-    return 1;
-}
-*/
-
-int CSelectModel::start()
-{
 
     struct timeval ctv, tv, *ptv;
     ptv = NULL;
@@ -327,11 +227,27 @@ int CSelectModel::start()
                         continue;
                     }
 
-                    if (component->on_data(fd, buf, nread) != 0)
+                    int ret = component->on_data(fd, buf, nread);
+                    if (ret < 0)
                     {
+                        // error
                         LOG_WARN("process data error, sock: %d", fd);
                         component->on_error(fd);
                     }
+                    if (ret == 0)
+                    {
+                        // read done
+                        void *msg = NULL;
+                        if (m_pipe_line && m_pipe_line->get_next() && (msg = component->get_message(fd)))
+                        {
+                            m_pipe_line->get_next()->m_msg_queue.enqueue(msg);
+                        }
+                    }
+                    if (ret > 0)
+                    {
+                        // some date to read next time
+                    }
+
                     delete []buf;
                 }
             }
@@ -347,31 +263,23 @@ int CSelectModel::start()
                     continue;
                 }
 
-                if (m_rw_obj_deque[fd].size() > 0)
+                int r = component->do_write(fd);
+                if (r == 0)
                 {
-                    int ret = do_chunk_write(fd);
-                    if (ret < 0)
-                    {
-                        LOG_WARN("do write error, ret: %d, sock: %d", ret, fd);
-                        component->on_error(fd);
-                    }
-                    if (ret == 0)
-                    {
-                        for (std::deque<CRwObject *>::iterator it = m_rw_obj_deque[fd].begin(); it != m_rw_obj_deque[fd].end(); it++)
-                        {
-                            if (*it)
-                                delete *it;
-                        }
-                        m_rw_obj_deque[fd].clear();
-
-                        LOG_DEBUG("write done, sock: %d", fd);
-                        FD_CLR(fd, &m_write_set);
-                        component->on_write_done(fd);
-                    }
+                    // write done
+                    // close
+                    component->on_close(fd);
+                }
+                else if (r > 0)
+                {
+                    // some date not be written
+                    // write next time
                 }
                 else
                 {
-                    FD_CLR(fd, &m_write_set);
+                    // error
+                    // close
+                    component->on_error(fd);
                 }
             }
         }

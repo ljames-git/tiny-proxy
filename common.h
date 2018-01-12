@@ -22,14 +22,17 @@
 {\
     time_t t = time(NULL);\
     struct tm *local = localtime(&t); \
-    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d [%s] ",\
+    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d [%s] [%s %s:%d]",\
             local->tm_year + 1900,\
             local->tm_mon + 1,\
             local->tm_mday + 1,\
             local->tm_hour,\
             local->tm_min,\
             local->tm_sec,\
-            level);\
+            level,\
+            __func__,\
+            __FILE__,\
+            __LINE__);\
 }
 
 #ifdef OPEN_LOG_DEBUG

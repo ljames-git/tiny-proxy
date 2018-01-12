@@ -1,6 +1,7 @@
 #ifndef __PIPE_LINE_H__
 #define __PIPE_LINE_H__
 
+#include "Runnable.h"
 #include "ThreadMessageQueue.h"
 
 class CPipeLine
@@ -14,6 +15,7 @@ public:
     int get_task_num();
     int set_next(CPipeLine *task_pool);
     CPipeLine * get_next();
+    int start(IRunnable *runnable);
     int start();
     int start(int num);
     int join();

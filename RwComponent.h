@@ -9,7 +9,8 @@ public:
     virtual int on_data(int sock, char *buf, int size) = 0;
     virtual int on_close(int sock) = 0;
     virtual int on_error(int sock) = 0;
-    virtual int on_write_done(int sock) = 0;
+    virtual int do_write(int sock) = 0;
+    virtual void *get_message(int sock) = 0;
 };
 
 #endif //__RW_COMPONENT_H__

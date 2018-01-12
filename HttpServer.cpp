@@ -19,23 +19,14 @@ CHttpServer::CHttpServer(int port):
     pthread_mutex_init(&m_map_mutex, NULL);
 }
 
-CHttpServer::~CHttpServer()
+CHttpServer::CHttpServer(int port, IMultiPlexer *multi_plexer):
+    CTcpServer(port, multi_plexer)
 {
+    pthread_mutex_init(&m_map_mutex, NULL);
 }
 
-int CHttpServer::send_404(http_task_t *task)
+CHttpServer::~CHttpServer()
 {
-    if (!task)
-    {
-        LOG_WARN("CHttpServer::send_404 task is null");
-        return -1;
-    }
-
-    const char *content = "HTTP/1.1 404 Not Found\r\nServer: Tiny-Proxy/0.1\r\n\r\n";
-    int len = strlen(content);
-    get_model()->write(task->sock, content, len, this);
-
-    return 0;
 }
 
 int CHttpServer::parse_req_header(http_task_t *task)
@@ -154,7 +145,7 @@ int CHttpServer::on_data(int sock, char *buf, int size)
 
     // ignore data when request done
     if (task->req_done)
-        return 0;
+        return 1;
 
     if (task->body_offset == 0)
     {
@@ -170,7 +161,7 @@ int CHttpServer::on_data(int sock, char *buf, int size)
     // return negtive means error occurred
     if (state < 0)
     {
-        LOG_WARN("CHttpServer::on_data parse request error");
+        LOG_WARN("parse request error");
         return -1;
     }
 
@@ -180,7 +171,7 @@ int CHttpServer::on_data(int sock, char *buf, int size)
         int content_length = task->req.m_header.get_content_length();
         if (content_length < 0)
         {
-            LOG_WARN("CHttpServer::on_data content length invalid: %d", content_length);
+            LOG_WARN("content length invalid: %d", content_length);
             return -1;
         }
 
@@ -189,7 +180,7 @@ int CHttpServer::on_data(int sock, char *buf, int size)
             task->body = new char[content_length];
             if (!task->body)
             {
-                LOG_WARN("CHttpServer::on_data alloc body memory error");
+                LOG_WARN("alloc body memory error");
                 return -1;
             }
 
@@ -215,26 +206,13 @@ int CHttpServer::on_data(int sock, char *buf, int size)
         {
             // request done
             task->req_done = 1;
-            task_done(task);
+            LOG_STAT("task done: %s", task->req.m_header.get_uri());
+            return 0;
         }
     }
 
-    return 0;
+    return 1;
 }
-
-/*
-int CHttpServer::do_close(int sock)
-{
-    task_map_t::iterator it = m_task_map.find(sock);
-    if (it != m_task_map.end())
-    {
-        delete it->second;
-        m_task_map.erase(it);
-    }
-
-    return CTcpServer::do_close(sock);
-}
-*/
 
 int CHttpServer::do_close(int sock)
 {
@@ -254,24 +232,21 @@ int CHttpServer::do_close(int sock)
     return CTcpServer::do_close(sock);
 }
 
-int CHttpServer::task_done(http_task_t *task)
+void *CHttpServer::get_message(int sock)
 {
-    if (!task)
+    msg_t *msg = NULL;
+    pthread_mutex_lock(&m_map_mutex);
+    task_map_t::iterator it = m_task_map.find(sock);
+    if (it != m_task_map.end())
     {
-        LOG_WARN("CHttpServer::task_done task is null");
-        return -1;
+        http_task_t *task = it->second;
+        if (task->req_done)
+        {
+            msg = new msg_t;
+            msg->server = this;
+            msg->task = task;
+        }
     }
-
-    LOG_STAT("task done: %s", task->req.m_header.get_uri());
-
-    msg_t *msg = new msg_t;
-    msg->server = this;
-    msg->task = task;
-    get_next()->m_msg_queue.enqueue(msg);
-
-    //get_model()->clear_read_fd(task->sock);
-
-    LOG_STAT("enqueue: %s", task->req.m_header.get_uri());
-
-    return 0;
+    pthread_mutex_unlock(&m_map_mutex);
+    return msg;
 }

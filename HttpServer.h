@@ -51,11 +51,12 @@ typedef std::map<int, http_task_t *> task_map_t;
 public:
     CHttpServer();
     CHttpServer(int port);
+    CHttpServer(int port, IMultiPlexer *multi_plexer);
     ~CHttpServer();
 
 public:
     virtual int on_data(int sock, char *buf, int size);
-    virtual int send_404(http_task_t *task);
+    virtual void *get_message(int sock);
 
 //protected:
     virtual int do_close(int sock);

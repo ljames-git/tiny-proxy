@@ -76,6 +76,13 @@ int CPipeLine::start()
     return 0;
 }
 
+int CPipeLine::start(IRunnable *runnable)
+{
+    for (int i = 0; i < m_thread_num; i++)
+        pthread_create(m_threads + i, NULL, routine, this);
+    return 0;
+}
+
 int CPipeLine::join()
 {
     if (m_thread_num <= 0 || m_threads == NULL)
@@ -94,11 +101,15 @@ int CPipeLine::process()
 
 void * CPipeLine::routine(void * arg)
 {
-    CPipeLine *inst = (CPipeLine *)arg;
-    if (inst == NULL)
-        return NULL;
+    CPipeLine *inst = NULL;
+    IRunnable *runnable = dynamic_cast<IRunnable *>(arg);
+    if (!runnable)
+        inst = (CPipeLine *)arg;
 
-    inst->process();
+    if (inst != NULL)
+        inst->process();
+    else if (runnable)
+        runnable->run();
 
     return NULL;
 }

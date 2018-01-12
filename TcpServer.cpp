@@ -11,10 +11,24 @@
 #include "TcpServer.h"
 #include "SelectModel.h"
 
+CTcpServer::CTcpServer():
+    m_port(-1),
+    m_serv_sock(-1),
+    m_multi_plexer(NULL)
+{
+}
 
 CTcpServer::CTcpServer(int port):
     m_port(port),
-    m_serv_sock(-1)
+    m_serv_sock(-1),
+    m_multi_plexer(NULL)
+{
+}
+
+CTcpServer::CTcpServer(int port, IMultiPlexer *multi_plexer):
+    m_port(port),
+    m_serv_sock(-1),
+    m_multi_plexer(multi_plexer)
 {
 }
 
@@ -27,9 +41,18 @@ CTcpServer::~CTcpServer()
     }
 }
 
-IMultiPlexer* CTcpServer::get_model()
+IMultiPlexer* CTcpServer::get_multi_plexer()
 {
-    return CSelectModel::instance();
+    return m_multi_plexer;
+}
+
+int CTcpServer::set_multi_plexer(IMultiPlexer *multi_plexer)
+{
+    if (multi_plexer == NULL)
+        return -1;
+
+    m_multi_plexer = multi_plexer;
+    return 0;
 }
 
 bool CTcpServer::is_acceptable(int sock)
@@ -42,8 +65,7 @@ int CTcpServer::on_accept(int sock)
     int flags = fcntl(sock, F_GETFL, 0);
     fcntl(sock, F_SETFL, flags|O_NONBLOCK);
 
-    IMultiPlexer *multi_plexer = get_model();
-    if (!multi_plexer || multi_plexer->set_read_fd(sock, this) != 0)
+    if (m_multi_plexer->set_read_fd(sock, this) != 0)
         return -1;
 
     return 0;
@@ -54,12 +76,7 @@ int CTcpServer::on_data(int sock, char *buf, int size)
     if (buf == NULL || size <= 0)
         return -1;
 
-    close(sock);
-    IMultiPlexer *multi_plexer = get_model();
-    if (!multi_plexer || multi_plexer->clear_fd(sock) != 0)
-        return -1;
-
-    return 0;
+    return 1;
 }
 
 int CTcpServer::on_close(int sock)
@@ -72,9 +89,9 @@ int CTcpServer::on_error(int sock)
     return do_close(sock);
 }
 
-int CTcpServer::on_write_done(int sock)
+int CTcpServer::do_write(int sock)
 {
-    return do_close(sock);
+    return 0;
 }
 
 int CTcpServer::do_close(int sock)
@@ -88,18 +105,28 @@ int CTcpServer::do_close(int sock)
     }
 
     close(sock);
-    IMultiPlexer *multi_plexer = get_model();
-    if (!multi_plexer || multi_plexer->clear_fd(sock) != 0)
+    if (m_multi_plexer->clear_fd(sock) != 0)
         return -1;
-
     return 0;
 }
 
-int CTcpServer::process()
+void * CTcpServer::get_message(int sock)
+{
+    return NULL;
+}
+
+int CTcpServer::start(IMultiPlexer *multi_plexer)
 {
     if (m_port <= 0)
     {
         LOG_ERROR("invalid port");
+        return -1;
+    }
+
+    set_multi_plexer(multi_plexer);
+    if (!m_multi_plexer)
+    {
+        LOG_ERROR("multi_plexer null");
         return -1;
     }
 
@@ -124,17 +151,16 @@ int CTcpServer::process()
     // listen
     ERROR_ON_NEG(listen(m_serv_sock, 1024));
 
-    IMultiPlexer *multi_plexer = get_model();
-    if (!multi_plexer || multi_plexer->set_read_fd(m_serv_sock, this) != 0 || multi_plexer->set_timeout(50) != 0)
+    if (multi_plexer->set_read_fd(m_serv_sock, this) != 0) //|| multi_plexer->set_timeout(50) != 0)
         return -1;
 
-    //if (multi_plexer->start() < 0)
-    //    return -1;
+    /*
     for (;;)
     {
-        multi_plexer->start();
+        multi_plexer->run();
         LOG_WARN("select error, errno: %d", errno);
     }
+    */
 
     return 0;
 }
