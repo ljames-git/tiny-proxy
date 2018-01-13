@@ -1,6 +1,7 @@
 #include <vector>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "curl/curl.h"
 
@@ -142,20 +143,13 @@ int send_req(msg_t *msg)
     res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
 
-    /*
+    task->res_done = 1;
     if (res == CURLE_OK)
     {
-        char x[] = "\r\n";
-        server->get_model()->write(task->sock, x, strlen(x), server);
-        //server->get_model()->write(task->sock, wbuf.data(), wbuf.size(), server);
     }
     else
     {
-        server->send_404(task);
-        LOG_WARN("404 from %s, ret: %d", url.c_str(), res);
     }
-    */
-    task->res_done = 1;
     server->do_close(task->sock);
     LOG_STAT("req done: %s", task->req.m_header.get_uri());
 
