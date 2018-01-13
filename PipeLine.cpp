@@ -1,6 +1,12 @@
 #include "common.h"
 #include "PipeLine.h"
 
+struct thread_info_t
+{
+    int type;
+    void *obj;
+};
+
 CPipeLine::CPipeLine():
     m_is_active(false),
     m_thread_num(1),
@@ -72,14 +78,25 @@ int CPipeLine::start(int num)
 int CPipeLine::start()
 {
     for (int i = 0; i < m_thread_num; i++)
-        pthread_create(m_threads + i, NULL, routine, this);
+    {
+        thread_info_t *t = new thread_info_t;
+        t->type = 0;
+        t->obj = this;
+        pthread_create(m_threads + i, NULL, routine, t);
+    }
     return 0;
 }
 
 int CPipeLine::start(IRunnable *runnable)
 {
     for (int i = 0; i < m_thread_num; i++)
-        pthread_create(m_threads + i, NULL, routine, this);
+    {
+        thread_info_t *t = new thread_info_t;
+        t->type = 1;
+        t->obj = runnable;
+        runnable->set_pipe_line(this);
+        pthread_create(m_threads + i, NULL, routine, t);
+    }
     return 0;
 }
 
@@ -101,15 +118,23 @@ int CPipeLine::process()
 
 void * CPipeLine::routine(void * arg)
 {
-    CPipeLine *inst = NULL;
-    IRunnable *runnable = dynamic_cast<IRunnable *>(arg);
-    if (!runnable)
-        inst = (CPipeLine *)arg;
+    if (arg == NULL)
+        return NULL;
 
-    if (inst != NULL)
-        inst->process();
-    else if (runnable)
-        runnable->run();
-
+    thread_info_t *t = (thread_info_t *)arg;
+    if (t->type == 0)
+    {
+        CPipeLine *inst = (CPipeLine *)t->obj;
+        delete t;
+        if (inst)
+            inst->process();
+    }
+    else
+    {
+        IRunnable *runnable = (IRunnable *)t->obj;
+        delete t;
+        if (runnable)
+            runnable->run();
+    }
     return NULL;
 }

@@ -1,8 +1,6 @@
 #ifndef __RUNNABLE_H__
 #define __RUNNABLE_H__
 
-#include "PipeLine.h"
-
 class CPipeLine;
 
 class IRunnable

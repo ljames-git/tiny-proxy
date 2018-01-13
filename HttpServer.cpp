@@ -114,7 +114,7 @@ int CHttpServer::parse_req_header(http_task_t *task)
     if (task->header_size >= HTTP_HEADER_LEN)
     {
         // header is too long
-        LOG_WARN("CHttpServer::parse_req_header header is too long, size: %d, uri: %s", task->header_size, task->req.m_header.get_uri());
+        LOG_WARN("parse_req_header header is too long, size: %d, uri: %s", task->header_size, task->req.m_header.get_uri());
         LOG_WARN("%s", task->header_buf);
         return -1;
     }
@@ -133,7 +133,7 @@ int CHttpServer::on_data(int sock, char *buf, int size)
         task = new http_task_t(sock);
         if (task == NULL)
         {
-            LOG_WARN("CHttpServer::on_data task is null");
+            LOG_WARN("task is null");
             return -1;
         }
 

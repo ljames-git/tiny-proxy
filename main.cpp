@@ -47,6 +47,7 @@ int main(int argc, char ** argv)
     }
 
     CPipeLine *server_thread = new CPipeLine;
+    server_thread ->set_next(client);
     server_thread->start(multi_plexer);
 
     client->join();

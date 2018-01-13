@@ -151,7 +151,7 @@ int CTcpServer::start(IMultiPlexer *multi_plexer)
     // listen
     ERROR_ON_NEG(listen(m_serv_sock, 1024));
 
-    if (multi_plexer->set_read_fd(m_serv_sock, this) != 0) //|| multi_plexer->set_timeout(50) != 0)
+    if (m_multi_plexer->set_read_fd(m_serv_sock, this) != 0) //|| m_multi_plexer->set_timeout(50) != 0)
         return -1;
 
     /*

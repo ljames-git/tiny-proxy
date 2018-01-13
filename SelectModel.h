@@ -7,6 +7,7 @@
 #include <sys/select.h>
 
 #include "RwObject.h"
+#include "PipeLine.h"
 #include "MultiPlexer.h"
 
 class CSelectModel: public IMultiPlexer
