@@ -79,7 +79,7 @@ static size_t on_write_data(void* buffer, size_t size, size_t nmemb, void* lpVoi
     */
 
     msg_t *param = (msg_t *)lpVoid;  
-    if (write_with_timeout(param->task->sock, (char *)buffer, size * nmemb, 0) == 0)
+    if (write_with_timeout(param->task->sock, (char *)buffer, size * nmemb, 500) == 0)
         return nmemb;
     return -1;
 }  

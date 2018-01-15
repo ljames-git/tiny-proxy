@@ -18,11 +18,13 @@
 #define LOG_LEVEL_WARN "WARN"
 #define LOG_LEVEL_ERROR "ERROR"
 
-#define LOG_TAG(level) \
+#define LOG_TAG(level, fmt, arg...) \
 {\
     time_t t = time(NULL);\
     struct tm *local = localtime(&t); \
-    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d [%s] [%s:%s] ",\
+    fprintf(stderr, "%04d-%02d-%02d %02d:%02d:%02d [%s] [%s:%s] " \
+            fmt \
+            "\n",\
             local->tm_year + 1900,\
             local->tm_mon + 1,\
             local->tm_mday + 1,\
@@ -31,15 +33,13 @@
             local->tm_sec,\
             level,\
             __FILE__,\
-            __FUNCTION__);\
+            __FUNCTION__, ##arg);\
 }
 
 #ifdef OPEN_LOG_DEBUG
 #define LOG_DEBUG(fmt, arg...) \
 {\
-    LOG_TAG(LOG_LEVEL_DEBUG);\
-    fprintf(stderr, fmt, ##arg);\
-    fprintf(stderr, "\n");\
+    LOG_TAG(LOG_LEVEL_DEBUG, fmt, ##arg);\
 }
 #else //OPEN_LOG_DEBUG
 #define LOG_DEBUG(fmt, arg...) 
@@ -48,9 +48,7 @@
 #ifdef OPEN_LOG_INFO
 #define LOG_INFO(fmt, arg...) \
 {\
-    LOG_TAG(LOG_LEVEL_INFO);\
-    fprintf(stderr, fmt, ##arg);\
-    fprintf(stderr, "\n");\
+    LOG_TAG(LOG_LEVEL_INFO, fmt, ##arg);\
 }
 #else //OPEN_LOG_INFO
 #define LOG_INFO(fmt, arg...) 
@@ -59,9 +57,7 @@
 #ifdef OPEN_LOG_STAT
 #define LOG_STAT(fmt, arg...) \
 {\
-    LOG_TAG(LOG_LEVEL_STAT);\
-    fprintf(stderr, fmt, ##arg);\
-    fprintf(stderr, "\n");\
+    LOG_TAG(LOG_LEVEL_STAT, fmt, ##arg);\
 }
 #else //OPEN_LOG_STAT
 #define LOG_STAT(fmt, arg...) 
@@ -69,15 +65,11 @@
 
 #define LOG_WARN(fmt, arg...) \
 {\
-    LOG_TAG(LOG_LEVEL_WARN);\
-    fprintf(stderr, fmt, ##arg);\
-    fprintf(stderr, "\n");\
+    LOG_TAG(LOG_LEVEL_WARN, fmt, ##arg);\
 }
 #define LOG_ERROR(fmt, arg...) \
 {\
-    LOG_TAG(LOG_LEVEL_ERROR);\
-    fprintf(stderr, fmt, ##arg);\
-    fprintf(stderr, "\n");\
+    LOG_TAG(LOG_LEVEL_ERROR, fmt, ##arg);\
 }
 
 

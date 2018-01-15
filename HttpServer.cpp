@@ -75,6 +75,8 @@ int CHttpServer::parse_req_header(http_task_t *task)
                     task->req.m_header.set_method(HTTP_METHOD_POST);
                 else if (strcmp(method, "CONNECT") == 0)
                     task->req.m_header.set_method(HTTP_METHOD_CONNECT);
+                else if (strcmp(method, "HEAD") == 0)
+                    task->req.m_header.set_method(HTTP_METHOD_HEAD);
                 else
                 {
                     LOG_WARN("CHttpServer::parse_req_header unsupported method: %s", method);

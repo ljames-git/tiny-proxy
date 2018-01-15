@@ -13,6 +13,7 @@
 #define HTTP_METHOD_GET 2
 #define HTTP_METHOD_POST 3
 #define HTTP_METHOD_CONNECT 4
+#define HTTP_METHOD_HEAD 5
 
 class CHttpHeader
 {

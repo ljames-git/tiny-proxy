@@ -50,8 +50,8 @@ int main(int argc, char ** argv)
     server_thread ->set_next(client);
     server_thread->start(multi_plexer);
 
-    client->join();
     server_thread->join();
+    client->join();
 
     return 0;
 }
