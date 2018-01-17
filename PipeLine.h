@@ -4,6 +4,10 @@
 #include "Runnable.h"
 #include "ThreadMessageQueue.h"
 
+#define PIPE_LINE_MODE_HEAD 0
+#define PIPE_LINE_MODE_BODY 1
+#define PIPE_LINE_MODE_TAIL 2
+
 class CPipeLine
 {
 public:
@@ -19,7 +23,7 @@ public:
     int join();
 
 public:
-    virtual int process();
+    IRunnable *m_runnable;
 
 private:
     static void * routine (void *arg);

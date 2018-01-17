@@ -1,13 +1,8 @@
 #include "common.h"
 #include "PipeLine.h"
 
-struct thread_info_t
-{
-    int type;
-    void *obj;
-};
-
 CPipeLine::CPipeLine():
+    m_runnable(NULL),
     m_is_active(false),
     m_thread_num(1),
     m_next(NULL),
@@ -18,6 +13,7 @@ CPipeLine::CPipeLine():
 }
 
 CPipeLine::CPipeLine(int thread_num, int queue_size):
+    m_runnable(NULL),
     m_is_active(false),
     m_thread_num(1),
     m_next(NULL),
@@ -71,8 +67,9 @@ int CPipeLine::start(IRunnable *runnable)
 {
     for (int i = 0; i < m_thread_num; i++)
     {
+        m_runnable = runnable;
         runnable->set_pipe_line(this);
-        pthread_create(m_threads + i, NULL, routine, runnable);
+        pthread_create(m_threads + i, NULL, routine, this);
     }
     return 0;
 }
@@ -88,18 +85,48 @@ int CPipeLine::join()
     return 0;
 }
 
-int CPipeLine::process()
-{
-    return 0;
-}
-
 void * CPipeLine::routine(void * arg)
 {
     if (arg == NULL)
         return NULL;
 
-    IRunnable *runnable = (IRunnable *)arg;
-    if (runnable)
-        runnable->run();
+    CPipeLine *pipe_line = (CPipeLine *)arg;
+    if (pipe_line == NULL)
+        return NULL;
+
+    IRunnable *runnable = pipe_line->m_runnable;
+    if (runnable == NULL)
+        return NULL;
+
+    int mode = runnable->get_pipe_line_mode();
+    for (;;)
+    {
+        void *msg = NULL;
+        void **plist = NULL;
+        int list_size = 0;
+        if (mode != PIPE_LINE_MODE_HEAD)
+        {
+            msg = pipe_line->m_msg_queue.dequeue();
+            if (!msg)
+                continue;
+        }
+        if (runnable->run(msg, &plist, &list_size) < 0)
+        {
+            LOG_WARN("run error");
+            continue;
+        }
+        if (mode != PIPE_LINE_MODE_TAIL)
+        {
+            if (pipe_line->m_next == NULL)
+            {
+                LOG_ERROR("next pipe line not set on mode: %d", mode);
+                return NULL;
+            }
+            for (int i = 0; i < list_size; i++)
+            {
+                pipe_line->m_next->m_msg_queue.enqueue(plist[i]);
+            }
+        }
+    }
     return NULL;
 }

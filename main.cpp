@@ -6,7 +6,6 @@
 #include "HttpClient.h"
 #include "SelectModel.h"
 
-#ifndef MULTI_THREAD_VERSION
 int main(int argc, char ** argv)
 {
     signal(SIGPIPE, SIG_IGN);
@@ -14,42 +13,33 @@ int main(int argc, char ** argv)
     IMultiPlexer *multi_plexer = CSelectModel::instance();
 
     int port = 8888;
-    CTcpServer *s = new CHttpServer(port, multi_plexer);
-    if (s == NULL)
+    CTcpServer *server = new CHttpServer(port, multi_plexer);
+    if (server == NULL)
     {
         LOG_ERROR("failed to create server, bind port: %d", port);
         return -1;
     }
-    if (s->start() == 0)
+    if (server->start() == 0)
     {
-        LOG_INFO("SERVER START SUCCESSFULLY");
+        LOG_INFO("SERVER BIND SUCCESSFULLY");
     }
     else
     {
-        LOG_ERROR("SERVER START ERROR");
+        LOG_ERROR("SERVER BIND ERROR");
         return -2;
     }
 
     CPipeLine *client_pl = new CPipeLine(8);
-    if (client_pl->start(new CHttpClient) == 0)
-    {
-        LOG_INFO("HTTP CLIENT START SUCCESSFULLY");
-    }
-    else
-    {
-        LOG_ERROR("HTTP CLIENT START ERROR");
-        return -2;
-    }
+    client_pl->start(new CHttpClient);
 
+    CPipeLine *server_pl = new CPipeLine;
+    server_pl->set_next(client_pl);
+    server_pl->start(multi_plexer);
 
-    CPipeLine *server_thread = new CPipeLine;
-    server_thread ->set_next(client_pl);
-    server_thread->start(multi_plexer);
+    LOG_INFO("START SUCCESSFULLY");
 
-    server_thread->join();
+    server_pl->join();
     client_pl->join();
 
     return 0;
 }
-#else
-#endif //MULTI_THREAD_VERSION

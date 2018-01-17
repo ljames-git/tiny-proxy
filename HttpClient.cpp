@@ -136,7 +136,7 @@ int send_req(msg_t *msg)
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(curl, CURLOPT_HEADER, 1);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
-    //curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60 * 5);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
 
     LOG_STAT("send req: %s", task->req.m_header.get_uri());
@@ -177,16 +177,19 @@ int CHttpClient::set_pipe_line(CPipeLine *pipe_line)
     return 0;
 }
 
-int CHttpClient::run()
+int CHttpClient::get_pipe_line_mode()
 {
-    for (;;)
-    {
-        msg_t *msg = (msg_t *)m_pipe_line->m_msg_queue.dequeue();
-        if (!msg)
-            continue;
+    return PIPE_LINE_MODE_TAIL;
+}
 
-        LOG_STAT("dequeue: %s", msg->task->req.m_header.get_uri());
-        send_req(msg);
-    }
+int CHttpClient::run(void *msg, void ***plist, int *psize)
+{
+    if (!msg)
+        return -1;
+
+    LOG_STAT("dequeue: %s", msg->task->req.m_header.get_uri());
+
+    send_req((msg_t *)msg);
+
     return 0;
 }

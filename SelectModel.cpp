@@ -21,6 +21,7 @@ CSelectModel::CSelectModel() :
     FD_ZERO(&m_read_set);
     FD_ZERO(&m_write_set);
     memset(m_components, 0, sizeof(m_components));
+    memset(m_msg_list, 0, sizeof(m_msg_list));
 }
 
 CSelectModel::~CSelectModel()
@@ -51,6 +52,8 @@ int CSelectModel::set_pipe_line(CPipeLine *pipe_line)
     }
 
     m_pipe_line = pipe_line;
+    LOG_INFO("PIPE LINE MODE ON");
+
     return 0;
 }
 
@@ -115,16 +118,17 @@ int CSelectModel::set_timeout(int milli_sec)
     return 0;
 }
 
-int CSelectModel::run()
+int CSelectModel::get_pipe_line_mode()
 {
-    if (m_pipe_line)
-    {
-        LOG_INFO("PIPE LINE MODE ON");
-    }
-    else
-    {
-        LOG_INFO("PIPE LINE MODE OFF");
-    }
+    return PIPE_LINE_MODE_HEAD;
+}
+
+int CSelectModel::run(void *msg, void ***plist, int *psize)
+{
+    if (!plist || !psize)
+        return -1;
+    *plist = NULL;
+    *psize = 0;
 
     struct timeval ctv, tv, *ptv;
     ptv = NULL;
@@ -136,158 +140,167 @@ int CSelectModel::run()
         ptv = &tv;
     }
 
-    for (;;)
+    fd_set rset = m_read_set;
+    fd_set wset = m_write_set;
+    int msg_list_size = 0;
+    int ret = select(FD_SETSIZE, &rset, &wset, NULL, ptv);
+    if (ret > 0)
     {
-        int ret = 0; 
-        fd_set rset, wset;
-        for (rset = m_read_set, wset = m_write_set;
-                (ret = select(FD_SETSIZE, &rset, &wset, NULL, ptv)) >= 0;
-                rset = m_read_set, wset = m_write_set, tv = ctv)
+        int readable = 1;
+        int writable = 1;
+        for (int fd = 0; fd < FD_SETSIZE; fd++)
         {
-            if (ret == 0)
+            if (readable && FD_ISSET(fd, &rset))
             {
-                continue;
-            }
-
-            for (int fd = 0; fd < FD_SETSIZE; fd++)
-            {
-                if (FD_ISSET(fd, &rset))
+                IRwComponent *component = m_components[fd];
+                if (component == NULL)
                 {
-                    IRwComponent *component = m_components[fd];
-                    if (component == NULL)
+                    // fd might be closed by other threads
+                    close(fd);
+                    FD_CLR(fd, &m_read_set);
+                    continue;
+                }
+
+                if (component->is_acceptable(fd))
+                {
+                    struct sockaddr_in client_address;  
+                    socklen_t client_len = sizeof(client_address);
+                    int client_sock = accept(fd, (struct sockaddr *)&client_address, &client_len);  
+                    if (client_sock <= 0)
                     {
-                        // fd might be closed by other threads
-                        close(fd);
-                        FD_CLR(fd, &m_read_set);
+                        if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+                        {
+                            LOG_DEBUG("accept error, sock: %d", fd);
+                            component->on_error(fd);
+                        }
                         continue;
                     }
 
-                    if (component->is_acceptable(fd))
+                    if (component->on_accept(client_sock) != 0)
                     {
-                        struct sockaddr_in client_address;  
-                        socklen_t client_len = sizeof(client_address);
-                        int client_sock = accept(fd, (struct sockaddr *)&client_address, &client_len);  
-                        if (client_sock <= 0)
-                        {
-                            if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
-                            {
-                                LOG_DEBUG("accept error, sock: %d", fd);
-                                component->on_error(fd);
-                            }
-                            continue;
-                        }
-
-                        if (component->on_accept(client_sock) != 0)
-                        {
-                            LOG_WARN("componet on_accept error");
-                            component->on_error(client_sock);
-                            continue;
-                        }
+                        LOG_WARN("componet on_accept error");
+                        component->on_error(client_sock);
+                        continue;
                     }
-                    else
+                }
+                else
+                {
+                    int to_read = 0;
+                    ioctl(fd, FIONREAD, &to_read);
+                    if (to_read == 0)
                     {
-                        int to_read = 0;
-                        ioctl(fd, FIONREAD, &to_read);
-                        if (to_read == 0)
-                        {
-                            LOG_DEBUG("sock closed by peer, sock: %d", fd);
-                            component->on_close(fd);
-                            continue;
-                        }
-                        if (to_read < 0)
+                        LOG_DEBUG("sock closed by peer, sock: %d", fd);
+                        component->on_close(fd);
+                        continue;
+                    }
+                    if (to_read < 0)
+                    {
+                        LOG_WARN("read error on sock: %d", fd);
+                        component->on_error(fd);
+                        continue;
+                    }
+
+                    char *buf = new char[to_read];
+                    if (buf == NULL)
+                    {
+                        LOG_WARN("not enough memory, bytes: %d", to_read);
+                        continue;
+                    }
+
+                    int nread = read(fd, buf, to_read);
+                    if (nread == 0)
+                    {
+                        delete []buf;
+                        LOG_DEBUG("sock closed by peer, sock: %d", fd);
+                        component->on_close(fd);
+
+                        continue;
+                    }
+                    if (nread < 0)
+                    {
+                        if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
                         {
                             LOG_WARN("read error on sock: %d", fd);
                             component->on_error(fd);
-                            continue;
-                        }
-
-                        char *buf = new char[to_read];
-                        if (buf == NULL)
-                        {
-                            LOG_WARN("not enough memory, bytes: %d", to_read);
-                            continue;
-                        }
-
-                        int nread = read(fd, buf, to_read);
-                        if (nread == 0)
-                        {
-                            delete []buf;
-                            LOG_DEBUG("sock closed by peer, sock: %d", fd);
-                            component->on_close(fd);
-
-                            continue;
-                        }
-                        if (nread < 0)
-                        {
-                            if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
-                            {
-                                LOG_WARN("read error on sock: %d", fd);
-                                component->on_error(fd);
-                            }
-
-                            delete []buf;
-                            continue;
-                        }
-
-                        int ret = component->on_data(fd, buf, nread);
-                        if (ret < 0)
-                        {
-                            // error
-                            LOG_WARN("process data error, sock: %d", fd);
-                            component->on_error(fd);
-                        }
-                        if (ret == 0)
-                        {
-                            // read done
-                            void *msg = NULL;
-                            if (m_pipe_line && m_pipe_line->get_next() && (msg = component->get_message(fd)))
-                            {
-                                m_pipe_line->get_next()->m_msg_queue.enqueue(msg);
-                            }
-                        }
-                        if (ret > 0)
-                        {
-                            // some date to read next time
                         }
 
                         delete []buf;
-                    }
-                }
-
-                if (FD_ISSET(fd, &wset))
-                {
-                    IRwComponent *component = m_components[fd];
-                    if (component == NULL)
-                    {
-                        // fd might be closed by other threads
-                        close(fd);
-                        FD_CLR(fd, &m_write_set);
                         continue;
                     }
 
-                    int r = component->do_write(fd);
-                    if (r == 0)
-                    {
-                        // write done
-                        // close
-                        component->on_close(fd);
-                    }
-                    else if (r > 0)
-                    {
-                        // some date not be written
-                        // write next time
-                    }
-                    else
+                    int ret = component->on_data(fd, buf, nread);
+                    if (ret < 0)
                     {
                         // error
-                        // close
+                        LOG_WARN("process data error, sock: %d", fd);
                         component->on_error(fd);
                     }
+                    if (ret == 0)
+                    {
+                        // read done
+                        void *msg = NULL;
+                        if (m_pipe_line && m_pipe_line->get_next() && (msg = component->get_message(fd)))
+                        {
+                            m_msg_list[msg_list_size++] = msg;
+                            if (msg_list_size >= MSG_LIST_MAX_SIZE)
+                            {
+                                readable = 0;
+                                LOG_WARN("too many readable fds, read max: %d", MSG_LIST_MAX_SIZE);
+                            }
+                        }
+                    }
+                    if (ret > 0)
+                    {
+                        // some date to read next time
+                    }
+
+                    delete []buf;
+                }
+            }
+
+            if (writable && FD_ISSET(fd, &wset))
+            {
+                IRwComponent *component = m_components[fd];
+                if (component == NULL)
+                {
+                    // fd might be closed by other threads
+                    close(fd);
+                    FD_CLR(fd, &m_write_set);
+                    continue;
+                }
+
+                int r = component->do_write(fd);
+                if (r == 0)
+                {
+                    // write done
+                    // close
+                    component->on_close(fd);
+                }
+                else if (r > 0)
+                {
+                    // some date not be written
+                    // write next time
+                }
+                else
+                {
+                    // error
+                    // close
+                    component->on_error(fd);
                 }
             }
         }
-
-        LOG_WARN("select error, errno: %d", errno);
     }
+    else if (ret < 0)
+    {
+        LOG_WARN("select error, errno: %d", errno);
+        return -1;
+    }
+
+    if (msg_list_size > 0)
+    {
+        *plist = m_msg_list;
+        *psize = msg_list_size;
+    }
+
     return 0;
 }
