@@ -156,12 +156,8 @@ int send_req(msg_t *msg)
     return 0;
 }
 
-CHttpClient::CHttpClient()
-{
-}
-
-CHttpClient::CHttpClient(int thread_num, int queue_size):
-    CPipeLine(thread_num, queue_size)
+CHttpClient::CHttpClient():
+    m_pipe_line(NULL)
 {
 }
 
@@ -169,11 +165,23 @@ CHttpClient::~CHttpClient()
 {
 }
 
-int CHttpClient::process()
+int CHttpClient::set_pipe_line(CPipeLine *pipe_line)
+{
+    if (pipe_line == NULL)
+    {
+        LOG_ERROR("set pipe line error, NULL");
+        return -1;
+    }
+
+    m_pipe_line = pipe_line;
+    return 0;
+}
+
+int CHttpClient::run()
 {
     for (;;)
     {
-        msg_t *msg = (msg_t *)m_msg_queue.dequeue();
+        msg_t *msg = (msg_t *)m_pipe_line->m_msg_queue.dequeue();
         if (!msg)
             continue;
 

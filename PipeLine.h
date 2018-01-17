@@ -16,8 +16,6 @@ public:
     int set_next(CPipeLine *task_pool);
     CPipeLine * get_next();
     int start(IRunnable *runnable);
-    int start();
-    int start(int num);
     int join();
 
 public:

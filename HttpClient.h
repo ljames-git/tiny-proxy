@@ -1,16 +1,19 @@
 #ifndef __HTTP_CLIENT_H__
 #define __HTTP_CLIENT_H__
 
-#include "PipeLine.h"
+#include "Runnable.h"
 
-class CHttpClient: public CPipeLine
+class CHttpClient: public IRunnable
 {
 public:
     CHttpClient();
-    CHttpClient(int thread_num, int queue_size = 1024);
     ~CHttpClient();
 
-    virtual int process();
+    virtual int run();
+    virtual int set_pipe_line(CPipeLine *pipe_line);
+
+private:
+    CPipeLine *m_pipe_line;
 };
 
 #endif //__HTTP_CLIENT_H__

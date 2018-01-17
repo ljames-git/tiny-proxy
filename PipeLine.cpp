@@ -67,35 +67,12 @@ CPipeLine * CPipeLine::get_next()
     return m_next;
 }
 
-int CPipeLine::start(int num)
-{
-    if (set_task_num(num) < 0)
-        return -1;
-
-    return start();
-}
-
-int CPipeLine::start()
-{
-    for (int i = 0; i < m_thread_num; i++)
-    {
-        thread_info_t *t = new thread_info_t;
-        t->type = 0;
-        t->obj = this;
-        pthread_create(m_threads + i, NULL, routine, t);
-    }
-    return 0;
-}
-
 int CPipeLine::start(IRunnable *runnable)
 {
     for (int i = 0; i < m_thread_num; i++)
     {
-        thread_info_t *t = new thread_info_t;
-        t->type = 1;
-        t->obj = runnable;
         runnable->set_pipe_line(this);
-        pthread_create(m_threads + i, NULL, routine, t);
+        pthread_create(m_threads + i, NULL, routine, runnable);
     }
     return 0;
 }
@@ -121,20 +98,8 @@ void * CPipeLine::routine(void * arg)
     if (arg == NULL)
         return NULL;
 
-    thread_info_t *t = (thread_info_t *)arg;
-    if (t->type == 0)
-    {
-        CPipeLine *inst = (CPipeLine *)t->obj;
-        delete t;
-        if (inst)
-            inst->process();
-    }
-    else
-    {
-        IRunnable *runnable = (IRunnable *)t->obj;
-        delete t;
-        if (runnable)
-            runnable->run();
-    }
+    IRunnable *runnable = (IRunnable *)arg;
+    if (runnable)
+        runnable->run();
     return NULL;
 }

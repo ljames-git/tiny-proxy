@@ -13,22 +13,6 @@ int main(int argc, char ** argv)
 
     IMultiPlexer *multi_plexer = CSelectModel::instance();
 
-    CHttpClient *client = new CHttpClient(8);
-    if (client == NULL)
-    {
-        LOG_ERROR("failed to create http client");
-        return -1;
-    }
-    if (client->start() == 0)
-    {
-        LOG_INFO("HTTP CLIENT START SUCCESSFULLY");
-    }
-    else
-    {
-        LOG_ERROR("HTTP CLIENT START ERROR");
-        return -2;
-    }
-
     int port = 8888;
     CTcpServer *s = new CHttpServer(port, multi_plexer);
     if (s == NULL)
@@ -46,12 +30,24 @@ int main(int argc, char ** argv)
         return -2;
     }
 
+    CPipeLine *client_pl = new CPipeLine(8);
+    if (client_pl->start(new CHttpClient) == 0)
+    {
+        LOG_INFO("HTTP CLIENT START SUCCESSFULLY");
+    }
+    else
+    {
+        LOG_ERROR("HTTP CLIENT START ERROR");
+        return -2;
+    }
+
+
     CPipeLine *server_thread = new CPipeLine;
-    server_thread ->set_next(client);
+    server_thread ->set_next(client_pl);
     server_thread->start(multi_plexer);
 
     server_thread->join();
-    client->join();
+    client_pl->join();
 
     return 0;
 }
