@@ -15,8 +15,7 @@ CSelectModel *CSelectModel::m_inst = NULL;
 pthread_mutex_t CSelectModel::m_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 CSelectModel::CSelectModel() :
-    m_timeout(0),
-    m_pipe_line(NULL)
+    m_timeout(0)
 {
     FD_ZERO(&m_read_set);
     FD_ZERO(&m_write_set);
@@ -41,20 +40,6 @@ CSelectModel *CSelectModel::instance()
     }
 
     return m_inst;
-}
-
-int CSelectModel::set_pipe_line(CPipeLine *pipe_line)
-{
-    if (pipe_line == NULL)
-    {
-        LOG_WARN("fail to set pipe line: NULL");
-        return -1;
-    }
-
-    m_pipe_line = pipe_line;
-    LOG_INFO("PIPE LINE MODE ON");
-
-    return 0;
 }
 
 int CSelectModel::set_read_fd(int fd, IRwComponent *component)
@@ -118,11 +103,6 @@ int CSelectModel::set_timeout(int milli_sec)
     return 0;
 }
 
-int CSelectModel::get_pipe_line_mode()
-{
-    return PIPE_LINE_MODE_HEAD;
-}
-
 int CSelectModel::run(void *msg, void ***plist, int *psize)
 {
     if (!plist || !psize)
@@ -156,8 +136,8 @@ int CSelectModel::run(void *msg, void ***plist, int *psize)
                 if (component == NULL)
                 {
                     // fd might be closed by other threads
-                    close(fd);
                     FD_CLR(fd, &m_read_set);
+                    close(fd);
                     continue;
                 }
 
@@ -238,8 +218,8 @@ int CSelectModel::run(void *msg, void ***plist, int *psize)
                     if (ret == 0)
                     {
                         // read done
-                        void *msg = NULL;
-                        if (m_pipe_line && m_pipe_line->get_next() && (msg = component->get_message(fd)))
+                        void *msg = component->get_message(fd);
+                        if (msg)
                         {
                             m_msg_list[msg_list_size++] = msg;
                             if (msg_list_size >= MSG_LIST_MAX_SIZE)
@@ -264,8 +244,8 @@ int CSelectModel::run(void *msg, void ***plist, int *psize)
                 if (component == NULL)
                 {
                     // fd might be closed by other threads
-                    close(fd);
                     FD_CLR(fd, &m_write_set);
+                    close(fd);
                     continue;
                 }
 

@@ -30,11 +30,11 @@ int main(int argc, char ** argv)
     }
 
     CPipeLine *client_pl = new CPipeLine(8);
-    client_pl->start(new CHttpClient);
+    client_pl->start(new CHttpClient, PIPE_LINE_MODE_TAIL);
 
     CPipeLine *server_pl = new CPipeLine;
     server_pl->set_next(client_pl);
-    server_pl->start(multi_plexer);
+    server_pl->start(multi_plexer, PIPE_LINE_MODE_HEAD);
 
     LOG_INFO("START SUCCESSFULLY");
 

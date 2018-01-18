@@ -104,9 +104,9 @@ int CTcpServer::do_close(int sock)
         return 0;
     }
 
+    m_multi_plexer->clear_fd(sock);
     close(sock);
-    if (m_multi_plexer->clear_fd(sock) != 0)
-        return -1;
+
     return 0;
 }
 

@@ -1,5 +1,11 @@
-#include "common.h"
 #include "PipeLine.h"
+
+struct thread_info_t
+{
+    CPipeLine *pipe_line;
+    IRunnable *runnable;
+    int mode;
+};
 
 CPipeLine::CPipeLine():
     m_runnable(NULL),
@@ -63,13 +69,15 @@ CPipeLine * CPipeLine::get_next()
     return m_next;
 }
 
-int CPipeLine::start(IRunnable *runnable)
+int CPipeLine::start(IRunnable *runnable, int mode)
 {
     for (int i = 0; i < m_thread_num; i++)
     {
-        m_runnable = runnable;
-        runnable->set_pipe_line(this);
-        pthread_create(m_threads + i, NULL, routine, this);
+        thread_info_t *ti = new thread_info_t;
+        ti->pipe_line = this;
+        ti->runnable = runnable;
+        ti->mode = mode;
+        pthread_create(m_threads + i, NULL, routine, ti);
     }
     return 0;
 }
@@ -90,15 +98,20 @@ void * CPipeLine::routine(void * arg)
     if (arg == NULL)
         return NULL;
 
-    CPipeLine *pipe_line = (CPipeLine *)arg;
+    thread_info_t *ti = (thread_info_t *)arg;
+
+    CPipeLine *pipe_line = ti->pipe_line;
     if (pipe_line == NULL)
         return NULL;
 
-    IRunnable *runnable = pipe_line->m_runnable;
+    IRunnable *runnable = ti->runnable;
     if (runnable == NULL)
         return NULL;
 
-    int mode = runnable->get_pipe_line_mode();
+    int mode = ti->mode;
+
+    delete ti;
+
     for (;;)
     {
         void *msg = NULL;
@@ -112,14 +125,12 @@ void * CPipeLine::routine(void * arg)
         }
         if (runnable->run(msg, &plist, &list_size) < 0)
         {
-            LOG_WARN("run error");
             continue;
         }
         if (mode != PIPE_LINE_MODE_TAIL)
         {
             if (pipe_line->m_next == NULL)
             {
-                LOG_ERROR("next pipe line not set on mode: %d", mode);
                 return NULL;
             }
             for (int i = 0; i < list_size; i++)

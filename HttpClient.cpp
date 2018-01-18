@@ -156,30 +156,12 @@ int send_req(msg_t *msg)
     return 0;
 }
 
-CHttpClient::CHttpClient():
-    m_pipe_line(NULL)
+CHttpClient::CHttpClient()
 {
 }
 
 CHttpClient::~CHttpClient()
 {
-}
-
-int CHttpClient::set_pipe_line(CPipeLine *pipe_line)
-{
-    if (pipe_line == NULL)
-    {
-        LOG_ERROR("set pipe line error, NULL");
-        return -1;
-    }
-
-    m_pipe_line = pipe_line;
-    return 0;
-}
-
-int CHttpClient::get_pipe_line_mode()
-{
-    return PIPE_LINE_MODE_TAIL;
 }
 
 int CHttpClient::run(void *msg, void ***plist, int *psize)
