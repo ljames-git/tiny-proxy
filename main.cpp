@@ -1,5 +1,6 @@
 #include <signal.h>
 #include "common.h"
+#include "version.h"
 #include "PipeLine.h"
 #include "TcpServer.h"
 #include "HttpServer.h"
@@ -36,7 +37,7 @@ int main(int argc, char ** argv)
     server_pl->set_next(client_pl);
     server_pl->start(multi_plexer, PIPE_LINE_MODE_HEAD);
 
-    LOG_INFO("START SUCCESSFULLY");
+    LOG_INFO("START SUCCESSFULLY v%s", PROXY_VERSION);
 
     server_pl->join();
     client_pl->join();
